@@ -1,0 +1,174 @@
+<!DOCTYPE html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>מר שף</title><link rel="manifest" href="manifest.json"><meta name="theme-color" content="#e85d04"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="מר שף"><style>
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,Arial;background:#fff8f0;color:#333}
+header{background:linear-gradient(135deg,#e85d04,#f48c06);color:#fff;padding:12px 16px;text-align:center;position:sticky;top:0;z-index:5}
+header h1{margin:0;font-size:22px}#who{font-size:12px}#who button{background:#fff3;border:0;color:#fff;border-radius:8px;padding:2px 8px;margin-inline-start:6px}
+nav{display:flex;gap:4px;justify-content:center;margin-top:8px;flex-wrap:wrap}
+nav button{background:#fff3;border:0;color:#fff;padding:6px 10px;border-radius:16px;cursor:pointer}nav button.on{background:#fff;color:#e85d04}
+main{max-width:600px;margin:auto;padding:12px}.card{background:#fff;border-radius:14px;padding:14px;margin:10px 0;box-shadow:0 2px 8px #0001}
+label{display:block;margin:8px 0 4px;font-weight:600}input,select,textarea{width:100%;padding:10px;border:1px solid #ddd;border-radius:10px;font-size:16px;font-family:inherit}
+.row{display:flex;gap:8px}.row>*{flex:1}.btn{background:#e85d04;color:#fff;border:0;padding:12px 16px;border-radius:12px;font-size:16px;cursor:pointer;width:100%;margin-top:10px}
+.btn.sec{background:#fff;color:#e85d04;border:2px solid #e85d04}.sm{padding:5px 10px;font-size:13px;border-radius:8px;border:1px solid #ccc;background:#fff;cursor:pointer;margin:2px}
+.dish{border:1px solid #f1e3d3;border-radius:12px;padding:8px 10px;margin:8px 0}.dh{display:flex;align-items:center;gap:8px}.emo{font-size:32px}.dh .t{flex:1}.muted{color:#888;font-size:13px}
+.tag{display:inline-block;background:#ffe8d6;color:#9a3412;border-radius:8px;padding:2px 8px;font-size:12px}.ing{display:inline-block;background:#f6f6f6;border-radius:10px;padding:4px 8px;margin:3px;font-size:14px}
+summary{cursor:pointer;color:#e85d04;font-weight:600;margin-top:6px}
+.tl{border-inline-start:3px solid #e85d04;padding-inline-start:12px;margin:6px 0}.stars button{width:34px;height:34px;border-radius:50%;border:1px solid #ddd;background:#fff;margin:2px;cursor:pointer}.stars button.on{background:#e85d04;color:#fff}
+.hide{display:none}h2{margin:4px 0 8px;font-size:19px}h3{margin:14px 0 4px}ol{padding-inline-start:20px;margin:6px 0}
+.disc{background:#fff3cd;border:2px solid #f0ad4e;color:#7a4b00;border-radius:12px;padding:10px;font-weight:600;font-size:14px;margin:10px 0}
+.shop{background:#eefaf0;border:2px solid #34a853}.shop label{font-weight:400;display:flex;gap:8px;align-items:center}.shop input{width:auto}
+.demo{background:#e8f0fe;border-radius:10px;padding:8px;font-size:18px;text-align:center;margin-top:8px}.add{background:#fafafa;border:1px dashed #e85d04;border-radius:12px;padding:10px;margin-top:10px}
+.refine{background:#f3f0ff;border-radius:12px;padding:10px;margin-top:8px}.chg{background:#e6f4ea;color:#1e6b34;border-radius:8px;padding:6px 8px;font-size:13px;margin:4px 0}
+.chat{background:#f0f7ff;border-radius:12px;padding:10px;margin-top:8px}.q{font-weight:600;margin-top:6px}.a{background:#fff;border-radius:8px;padding:6px 8px;margin:3px 0;white-space:pre-line}.ai{font-size:11px;color:#2563eb}
+.ctr{display:flex;align-items:center;gap:8px}.ctr button{width:34px;height:34px;border-radius:50%;border:1px solid #ccc;background:#fff;font-size:18px}
+</style></head><body>
+<header><h1>👨‍🍳 מר שף</h1><div id="who"></div>
+<nav id="nav" class="hide"><button data-v="plan" class="on">תכנון</button><button data-v="saved">הארוחות שלי</button><button data-v="lib">מאגר ארוחות</button><button data-v="comm">קהילה</button></nav></header>
+<main>
+<section id="v-login"><div class="card"><h2>כניסה עם מספר נייד</h2>
+ <label>מספר טלפון נייד</label><input id="phone" type="tel" inputmode="numeric" placeholder="050-1234567">
+ <button class="btn" id="sendCode">שלח קוד חד-פעמי</button>
+ <div id="codeBox" class="hide"><div class="demo">📱 מצב הדגמה – הקוד שנשלח: <b id="demoCode"></b></div>
+ <label>הזן קוד</label><input id="code" inputmode="numeric" maxlength="4"><button class="btn" id="verify">כניסה</button></div></div>
+ <div class="disc" data-disc></div></section>
+<section id="v-plan" class="hide">
+ <div class="card" id="formCard"><h2>ספר לי על הארוחה</h2>
+  <label>סגנון אוכל</label><select id="cuisine"></select>
+  <div class="row"><div><label>מבוגרים</label><input id="adults" type="number" min="0" value="4"></div><div><label>ילדים</label><input id="kids" type="number" min="0" value="2"></div></div>
+  <div class="row"><div><label>שעת הארוחה</label><input id="time" type="time" value="19:30"></div><div><label>רדיוס חנויות (ק"מ)</label><input id="radius" type="number" min="1" value="5"></div></div>
+  <button class="btn" id="gen">✨ הצע לי ארוחה</button></div>
+ <div id="sugg" class="hide"></div><div id="final" class="hide"></div>
+</section>
+<section id="v-saved" class="hide"></section><section id="v-lib" class="hide"></section><section id="v-comm" class="hide"></section>
+</main>
+<script>
+const I=(n,e,q,u)=>({n,e,q,u});
+const DB={
+ 'ים תיכוני':{dishes:[
+  {n:'שקשוקה',e:'🍳',type:'עיקרית',min:35,ing:[I('ביצים','🥚',2,'יח׳'),I('עגבניות','🍅',150,'גרם'),I('פלפל אדום','🫑',0.5,'יח׳'),I('בצל','🧅',0.3,'יח׳'),I('שום','🧄',1,'שן')],steps:['מטגנים בצל ושום','מוסיפים פלפל ועגבניות ומבשלים 15 דק׳','שוברים ביצים ומכסים עד שמתייצבות']},
+  {n:'סלט ישראלי',e:'🥗',type:'סלט',min:15,ing:[I('מלפפון','🥒',1,'יח׳'),I('עגבניות','🍅',100,'גרם'),I('בצל','🧅',0.2,'יח׳'),I('לימון','🍋',0.25,'יח׳'),I('שמן זית','🫒',10,'מ״ל')],steps:['חותכים קוביות קטנות','מתבלים בלימון, שמן ומלח רגע לפני ההגשה']},
+  {n:'עוף בתנור עם תפוחי אדמה',e:'🍗',type:'עיקרית',min:80,ing:[I('כרעי עוף','🍗',1,'יח׳'),I('תפוחי אדמה','🥔',200,'גרם'),I('שום','🧄',2,'שן'),I('שמן זית','🫒',15,'מ״ל')],steps:['מתבלים את העוף','מסדרים בתבנית עם תפוחי אדמה','אופים 70 דק׳ ב-200 מעלות']},
+  {n:'חומוס ביתי',e:'🫘',type:'מתאבן',min:30,ing:[I('חומוס מבושל','🫘',100,'גרם'),I('טחינה','🥣',30,'גרם'),I('לימון','🍋',0.25,'יח׳'),I('שום','🧄',0.5,'שן')],steps:['טוחנים חומוס עם טחינה, לימון ושום','מגישים עם שמן זית']}],
+  ready:[['פיתות טריות','🫓','מאפייה'],['סלטים מוכנים','🥙','מעדנייה'],['בקלאווה','🍯','קונדיטוריה']]},
+ 'איטלקי':{dishes:[
+  {n:'פסטה ברוטב עגבניות',e:'🍝',type:'עיקרית',min:30,ing:[I('פסטה','🍝',100,'גרם'),I('עגבניות מרוסקות','🍅',120,'גרם'),I('שום','🧄',1,'שן'),I('בזיליקום','🌿',2,'עלים'),I('פרמזן','🧀',15,'גרם')],steps:['מבשלים פסטה','מבשלים רוטב שום ועגבניות 15 דק׳','מערבבים ומפזרים פרמזן ובזיליקום']},
+  {n:'ברוסקטה',e:'🥖',type:'מתאבן',min:15,ing:[I('בגט','🥖',0.25,'יח׳'),I('עגבניות','🍅',60,'גרם'),I('שמן זית','🫒',10,'מ״ל')],steps:['קולים פרוסות לחם','מניחים עגבניות מתובלות מעל']},
+  {n:'סלט קפרזה',e:'🥗',type:'סלט',min:10,ing:[I('מוצרלה','🧀',60,'גרם'),I('עגבניות','🍅',100,'גרם'),I('בזיליקום','🌿',3,'עלים')],steps:['פורסים ומסדרים לסירוגין','מזלפים שמן זית']},
+  {n:'ריזוטו פטריות',e:'🍄',type:'עיקרית',min:45,ing:[I('אורז ארבוריו','🍚',80,'גרם'),I('פטריות','🍄',80,'גרם'),I('בצל','🧅',0.25,'יח׳'),I('ציר ירקות','🥣',250,'מ״ל')],steps:['מטגנים בצל ופטריות','מוסיפים אורז וציר בהדרגה תוך ערבוב 25 דק׳']}],
+  ready:[['פיצה מוכנה','🍕','פיצרייה'],['טירמיסו','🍰','קונדיטוריה'],['לחם פוקאצ׳ה','🍞','מאפייה']]},
+ 'אסייתי':{dishes:[
+  {n:'מוקפץ ירקות ועוף',e:'🥡',type:'עיקרית',min:30,ing:[I('חזה עוף','🍗',120,'גרם'),I('ברוקולי','🥦',60,'גרם'),I('גזר','🥕',0.5,'יח׳'),I('רוטב סויה','🥢',15,'מ״ל')],steps:['חותכים רצועות','מקפיצים עוף בווק חם','מוסיפים ירקות וסויה 5 דק׳']},
+  {n:'אורז מאודה',e:'🍚',type:'תוספת',min:25,ing:[I('אורז יסמין','🍚',70,'גרם')],steps:['שוטפים אורז','מבשלים במים פי 1.5, 15 דק׳ על אש קטנה']},
+  {n:'סלט מלפפונים אסייתי',e:'🥒',type:'סלט',min:10,ing:[I('מלפפון','🥒',1,'יח׳'),I('שומשום','🌰',5,'גרם'),I('חומץ אורז','🍶',10,'מ״ל')],steps:['פורסים דק ומתבלים']}],
+  ready:[['סושי','🍣','מסעדת סושי'],['גיוזה','🥟','מעדנייה אסייתית']]},
+ 'אמריקאי / מנגל':{dishes:[
+  {n:'המבורגרים',e:'🍔',type:'עיקרית',min:30,ing:[I('בשר טחון','🥩',150,'גרם'),I('לחמניות','🍞',1,'יח׳'),I('חסה','🥬',1,'עלה'),I('עגבניות','🍅',40,'גרם')],steps:['יוצרים קציצות','צולים 4 דק׳ לכל צד','מרכיבים בלחמנייה']},
+  {n:'צ׳יפס אפוי',e:'🍟',type:'תוספת',min:40,ing:[I('תפוחי אדמה','🥔',200,'גרם'),I('שמן זית','🫒',10,'מ״ל')],steps:['חותכים רצועות','אופים 35 דק׳ ב-220 מעלות']},
+  {n:'קולסלאו',e:'🥗',type:'סלט',min:15,ing:[I('כרוב','🥬',80,'גרם'),I('גזר','🥕',0.3,'יח׳'),I('מיונז','🥣',20,'גרם')],steps:['מגררים ומערבבים עם הרוטב']}],
+  ready:[['עוגת גבינה','🍰','קונדיטוריה'],['לחמניות בריוש','🍞','מאפייה']]}
+};
+const DISC='⚠️ המתכונים הם המלצה בלבד, אינם מתייחסים לרגישויות ואלרגיות שונות, והאחריות על ההכנה והאכילה היא של המשתמש בלבד.';
+const discH=`<div class="disc">${DISC}</div>`;document.querySelectorAll('[data-disc]').forEach(e=>e.textContent=DISC);
+const $=s=>document.querySelector(s);
+let mem={};const store={get(k){try{return localStorage.getItem(k)}catch(e){return mem[k]??null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){mem[k]=v}},del(k){try{localStorage.removeItem(k)}catch(e){delete mem[k]}}};
+const ALL=()=>JSON.parse(store.get('mrchef_meals')||'[]'),SAVE=a=>store.set('mrchef_meals',JSON.stringify(a));
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const mask=p=>p.slice(0,3)+'-***-'+p.slice(-2);
+let user=store.get('mrchef_user'),pending=null,cur=null;
+$('#cuisine').innerHTML=Object.keys(DB).map(c=>`<option>${c}</option>`).join('');
+$('#sendCode').onclick=()=>{const p=$('#phone').value.replace(/\D/g,'');if(!/^05\d{8}$/.test(p))return msg('מספר נייד לא תקין (10 ספרות, מתחיל ב-05)');pending={p,c:String(1000+Math.floor(Math.random()*9000))};$('#demoCode').textContent=pending.c;$('#codeBox').classList.remove('hide');};
+$('#verify').onclick=()=>{if(!pending||$('#code').value.trim()!=pending.c)return msg('קוד שגוי');user=pending.p;store.set('mrchef_user',user);boot();};
+function msg(t){alert(t)}
+function boot(){const li=!!user;$('#nav').classList.toggle('hide',!li);$('#who').innerHTML=li?`מחובר: ${mask(user)}<button onclick="logout()">התנתק / החלף משתמש</button>`:'מתכנן הארוחות האישי שלך';show(li?'plan':'login');}
+window.logout=()=>{store.del('mrchef_user');user=null;pending=null;$('#codeBox').classList.add('hide');$('#phone').value=$('#code').value='';cur=null;$('#sugg').classList.add('hide');$('#final').classList.add('hide');boot();};
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.v));
+window.show=v=>{document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v==v));['login','plan','saved','lib','comm'].forEach(x=>$('#v-'+x).classList.toggle('hide',x!=v));({saved:rSaved,lib:rLib,comm:rComm}[v]||(()=>{}))();scrollTo(0,0)};
+const P=m=>m.adults+m.kids*0.5,fmt=q=>Math.round(q*10)/10;
+function ingH(d,p){p=dp(d,p);const E=eff(d).ing;return E.length?E.map(x=>`<span class="ing">${x.e} ${esc(x.n)}${x.q?`: ${fmt(x.q*p)} ${esc(x.u)}`:''}</span>`).join(''):'<div class="muted">לא הוזנו מרכיבים – מומלץ לרשום את המרכיבים והכמויות למנה אחת</div>'}
+function stepsH(d){return d.steps.length?`<ol>${d.steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ol>`:'<div class="muted">לא הוזנו שלבי הכנה – הכן לפי המתכון המוכר לך: הכנת מרכיבים, בישול/אפייה, טעימה ותיבול, הגשה.</div>'}
+$('#gen').onclick=()=>{const c=$('#cuisine').value,a=+$('#adults').value||0,k=+$('#kids').value||0;if(a+k<1)return msg('הזן לפחות משתתף אחד');const r=+$('#radius').value||5;
+ const d=DB[c].dishes,pick=[d.find(x=>x.type=='עיקרית'),...d.filter(x=>x.type!='עיקרית').slice(0,2)].filter(Boolean);
+ cur={id:Date.now(),phone:user,cuisine:c,adults:a,kids:k,time:$('#time').value,radius:r,dishes:JSON.parse(JSON.stringify(pick)),ready:DB[c].ready.map(([n,e,kind],i)=>({n,e,store:`${kind} לדוגמה #${i+1}`,dist:(Math.random()*r).toFixed(1)}))};rSugg();};
+function rSugg(){const s=$('#sugg');s.classList.remove('hide');$('#final').classList.add('hide');const p=P(cur);
+ const avail=Object.values(DB).flatMap(x=>x.dishes).filter(d=>!cur.dishes.some(x=>x.n==d.n));
+ s.innerHTML=`<div class="card"><h2>🍽️ ההצעה של מר שף</h2><div class="muted">${cur.cuisine} · ${cur.adults} מבוגרים, ${cur.kids} ילדים (${fmt(p)} מנות) · ${cur.time}</div>${discH}
+ <h3>👩‍🍳 מנות להכנה</h3>${cur.dishes.map((d,i)=>`<div class="dish"><div class="dh"><span class="emo">${d.e}</span><div class="t"><b>${esc(d.n)}</b> <span class="tag">${esc(d.type)}</span> <span class="muted">⏱ ${d.min} דק׳</span></div><button class="sm" onclick="editD(${i})">✏️ ערוך</button><button class="sm" onclick="cur.dishes.splice(${i},1);rSugg()">🗑️</button></div>
+  <details open><summary>מרכיבים ואופן הכנה</summary><b>מרכיבים (ל-${fmt(dp(d,p))} מנות):</b><div>${ingH(d,p)}</div><b>אופן הכנה:</b>${stepsH(d)}</details>${refineH(d,i,p)}${chatH(d)}<div id="ed${i}"></div></div>`).join('')||'<p class="muted">אין מנות</p>'}
+ ${avail.length?`<div class="row" style="margin-top:8px"><select id="addSel">${avail.map(d=>`<option>${esc(d.n)}</option>`).join('')}</select><button class="sm" onclick="addFromList()">➕ הוסף מהמאגר</button></div>`:''}
+ <div class="add"><b>✍️ הוסף מנה משלך</b>
+  <label>שם המנה</label><input id="fdName" placeholder="לדוגמה: פשטידת ירקות">
+  <label>מרכיבים וכמויות למנה אחת (שורה לכל מרכיב)</label><textarea id="fdIng" rows="4" placeholder="ביצים - 1 יח׳&#10;קמח - 30 גרם&#10;קישוא - 0.5 יח׳"></textarea>
+  <label>שלבי הכנה (שורה לכל שלב)</label><textarea id="fdSteps" rows="3" placeholder="מחממים תנור ל-180&#10;מערבבים את כל המרכיבים&#10;אופים 40 דקות"></textarea>
+  <div class="row"><div><label>זמן הכנה (דק׳)</label><input id="fdMin" type="number" value="30"></div><div><label>סוג</label><select id="fdType"><option>עיקרית</option><option>תוספת</option><option>סלט</option><option>מתאבן</option><option>קינוח</option></select></div></div>
+  <button class="btn sec" id="fdAdd" onclick="addFree()">➕ הוסף מנה</button></div>
+ <h3>🛍️ לקנות מוכן (רדיוס ${cur.radius} ק"מ)</h3><div class="muted">⚠️ נתוני חנויות לדוגמה בלבד</div>
+ ${cur.ready.map((r,i)=>`<div class="dish"><div class="dh"><span class="emo">${r.e}</span><div class="t"><b>${esc(r.n)}</b><div class="muted">${esc(r.store)}${r.dist?` · ${r.dist} ק"מ`:''}${r.qty?` · כמות: ${esc(r.qty)}`:''}</div></div><button class="sm" onclick="cur.ready.splice(${i},1);rSugg()">🗑️</button></div></div>`).join('')}
+ <div class="add"><b>✍️ הוסף פריט לקנייה מוכן</b><div class="row"><input id="frName" placeholder="לדוגמה: עוגת שוקולד"><input id="frQty" placeholder="כמות (לא חובה)"></div><input id="frStore" style="margin-top:6px" placeholder="איפה לקנות? (לא חובה, לדוגמה: קונדיטוריה)"><button class="btn sec" id="frAdd" onclick="addReady()">➕ הוסף פריט</button></div>
+ <button class="btn" id="confirmBtn" onclick="confirmM()">✅ אשר ארוחה וקבל רשימת קניות ותוכנית</button></div>`;}
+window.addFromList=()=>{const v=$('#addSel').value;cur.dishes.push(JSON.parse(JSON.stringify(Object.values(DB).flatMap(x=>x.dishes).find(d=>d.n==v))));rSugg();};
+function parseIng(line){const m=line.split(/\s*[-–:]\s*/);const n=m[0].trim();const r=(m[1]||'').trim().match(/^([\d.]+)\s*(.*)$/);return r?I(n,'🧺',+r[1],r[2]||'יח׳'):I(n,'🧺',m[1]?0:1,m[1]||'יח׳')}
+window.addFree=()=>{const n=$('#fdName').value.trim();if(!n)return msg('נא להזין שם מנה');const lines=v=>v.split('\n').map(x=>x.trim()).filter(Boolean);
+ cur.dishes.push({n,e:'🍲',type:$('#fdType').value,min:+$('#fdMin').value||30,ing:lines($('#fdIng').value).map(parseIng),steps:lines($('#fdSteps').value)});rSugg();};
+window.addReady=()=>{const n=$('#frName').value.trim();if(!n)return msg('נא להזין שם פריט');cur.ready.push({n,e:'🛍️',store:$('#frStore').value.trim()||'חנות לבחירתך',qty:$('#frQty').value.trim(),dist:''});rSugg();};
+window.editD=i=>{const d=cur.dishes[i];$('#ed'+i).innerHTML=`<div class="add"><label>שם</label><input value="${esc(d.n)}" onchange="cur.dishes[${i}].n=this.value">`+d.ing.map((x,j)=>`<div class="row" style="margin:3px 0"><input value="${esc(x.n)}" onchange="cur.dishes[${i}].ing[${j}].n=this.value"><input type="number" step="any" value="${x.q}" onchange="cur.dishes[${i}].ing[${j}].q=+this.value"><input value="${esc(x.u)}" onchange="cur.dishes[${i}].ing[${j}].u=this.value"><button class="sm" onclick="cur.dishes[${i}].ing.splice(${j},1);editD(${i})">✕</button></div>`).join('')+`<button class="sm" onclick="cur.dishes[${i}].ing.push(I('מרכיב חדש','🧺',1,'יח׳'));editD(${i})">+ מרכיב</button><label>שלבי הכנה</label><textarea rows="3" onchange="cur.dishes[${i}].steps=this.value.split('\\n').filter(x=>x.trim())">${esc(d.steps.join('\n'))}</textarea><button class="sm" onclick="rSugg()">✔ סיום עריכה</button></div>`;};
+const toM=t=>{const[h,m]=t.split(':');return +h*60+ +m},toT=m=>{m=(m+1440)%1440;return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0')};
+function build(m){const p=P(m),shop={};m.dishes.forEach(d=>eff(d).ing.forEach(x=>{const k=x.n+'|'+x.u;shop[k]=shop[k]||{...x,q:0};shop[k].q+=x.q*dp(d,p)}));
+ const T=toM(m.time),tl=[{t:T-150,s:'🛒 קניות + איסוף פריטים מוכנים'}];[...m.dishes].sort((a,b)=>b.min-a.min).forEach(d=>tl.push({t:T-d.min-15,s:`${d.e} להתחיל להכין: ${d.n} (${d.min} דק׳)`}));tl.push({t:T-10,s:'🍽️ עריכת שולחן וחימום מוכנים'},{t:T,s:'🎉 ארוחה!'});tl.sort((a,b)=>a.t-b.t);
+ return `<div class="card"><h2>📋 תוכנית ארוחה – ${esc(m.cuisine)}</h2><div class="muted">${m.adults} מבוגרים, ${m.kids} ילדים = ${fmt(p)} מנות (ילד = חצי מנה) · ${m.time}</div>${discH}</div>
+ <div class="card shop"><h2>🛒 רשימת קניות</h2><h3>מצרכים</h3>${Object.values(shop).map(x=>`<label><input type="checkbox"> ${x.e} ${esc(x.n)}${x.q?` – ${fmt(x.q)} ${esc(x.u)}`:''}</label>`).join('')||'<div class="muted">אין</div>'}<h3>לקנות מוכן</h3>${m.ready.map(r=>`<label><input type="checkbox"> ${r.e} ${esc(r.n)}${r.qty?` (${esc(r.qty)})`:''} – ${esc(r.store)}</label>`).join('')||'<div class="muted">אין</div>'}</div>
+ <div class="card"><h2>⏰ לוח זמנים</h2>${tl.map(x=>`<div class="tl"><b>${toT(x.t)}</b> – ${esc(x.s)}</div>`).join('')}</div>
+ ${m.dishes.map(d=>`<div class="card"><h2>${d.e} ${esc(d.n)}</h2>${d.extra?`<div class="tag">➕ ${d.extra} מנות נוספות (סה״כ ${fmt(dp(d,p))})</div>`:''}${noteH(d)}<h3>מרכיבים</h3>${ingH(d,p)}<h3>אופן הכנה</h3>${stepsH(d)}${chatH(d)}</div>`).join('')}${discH}`;}
+window.confirmM=()=>{if(!cur.dishes.length&&!cur.ready.length)return msg('הוסף לפחות מנה או פריט');const a=ALL();a.unshift({...cur,phone:user,rating:null,comment:''});SAVE(a);
+ $('#sugg').classList.add('hide');const f=$('#final');f.classList.remove('hide');f.innerHTML=build(cur)+`<div class="card">✅ הארוחה נשמרה ב"הארוחות שלי" – שם אפשר לדרג ולהגיב.<button class="btn sec" onclick="show('saved')">לדירוג</button></div>`;scrollTo(0,0);};
+function rSaved(){const all=ALL().filter(m=>m.phone==user);$('#v-saved').innerHTML=all.length?all.map(m=>`<div class="card"><h2>${m.dishes.map(d=>d.e).join('')} ${esc(m.cuisine)}</h2><div class="muted">${new Date(m.id).toLocaleDateString('he-IL')} · ${m.dishes.map(d=>esc(d.n)).join(', ')}</div>
+ <div class="stars">${[...Array(10)].map((_,i)=>`<button class="${m.rating==i+1?'on':''}" onclick="rate(${m.id},${i+1})">${i+1}</button>`).join('')}</div>
+ <textarea placeholder="הערות שישותפו עם הקהילה" onchange="cmt(${m.id},this.value)">${esc(m.comment)}</textarea>
+ <button class="sm" onclick="view(${m.id})">📋 פרטים מלאים</button><button class="sm" onclick="del(${m.id})">🗑️ מחק</button><div id="vw${m.id}"></div></div>`).join(''):'<div class="card muted">עוד לא שמרת ארוחות</div>';}
+const upd=(id,f)=>{const a=ALL();const m=a.find(m=>m.id==id&&m.phone==user);if(m)f(m);SAVE(a)};
+window.rate=(id,r)=>{upd(id,m=>m.rating=r);rSaved()};window.cmt=(id,v)=>upd(id,m=>m.comment=v);window.del=id=>{if(confirm('למחוק?')){SAVE(ALL().filter(m=>!(m.id==id&&m.phone==user)));rSaved()}};
+window.view=(id,where='vw')=>{const e=$('#'+where+id);e.innerHTML=e.innerHTML?'':build(ALL().find(m=>m.id==id))};
+function rLib(){const l=ALL().filter(m=>m.rating==null||m.rating>8);$('#v-lib').innerHTML=`<div class="card muted">מאגר פומבי: ארוחות של כל המשתמשים שקיבלו ציון מעל 8 או שלא דורגו</div>`+(l.map(m=>`<div class="card"><h2>${m.dishes.map(d=>d.e).join('')} ${esc(m.cuisine)} ${m.rating?'⭐'+m.rating:'<span class="tag">לא דורג</span>'}</h2><div class="muted">${m.phone==user?'שלי':'משתמש '+mask(m.phone)} · ${m.dishes.map(d=>esc(d.n)).join(' · ')}</div><button class="sm" onclick="view(${m.id},'lv')">📋 פרטים</button><button class="sm" onclick="reuse(${m.id})">🔁 תכנן אצלי</button><div id="lv${m.id}"></div></div>`).join('')||'<div class="card muted">ריק</div>');}
+window.reuse=id=>{const m=ALL().find(x=>x.id==id);cur={...JSON.parse(JSON.stringify(m)),id:Date.now(),phone:user,rating:null,comment:''};show('plan');rSugg();};
+function rComm(){const seed=[{u:'דנה (דוגמה)',c:'איטלקי',r:9,t:'הריזוטו היה להיט אצל הילדים!'},{u:'יוסי (דוגמה)',c:'ים תיכוני',r:10,t:'לוח הזמנים עזר לי לא להילחץ'}];
+ const real=ALL().filter(m=>m.rating||m.comment).map(m=>({u:m.phone==user?'אני':'משתמש '+mask(m.phone),c:m.cuisine,r:m.rating,t:m.comment}));
+ $('#v-comm').innerHTML=`<div class="card muted">דירוגים והערות של כל המשתמשים (באב-טיפוס: כל המשתמשים שנכנסו במכשיר זה + דוגמאות)</div>`+[...real,...seed].map(x=>`<div class="card"><b>${esc(x.u)}</b> · ${esc(x.c)} ${x.r?'⭐'+x.r+'/10':''}<div>${esc(x.t)}</div></div>`).join('');}
+
+// ===== דיוק מנה, מנות נוספות ושאלות =====
+const AI_ENDPOINT=''; // כתובת שרת AI (POST {dish,question} -> {answer}). ריק = מצב הדגמה מקומי
+const dp=(d,p)=>p+(d.extra||0);
+const has=(d,re)=>d.ing.find(x=>re.test(x.n));
+function eff(d){const ing=d.ing.map(x=>({...x})),ch=[],t=(d.note||'');const find=re=>ing.find(x=>re.test(x.n));
+ if(/פחות חריף|לא חריף|בלי חריף/.test(t)){const i=ing.findIndex(x=>/צ׳ילי|צילי|חריף|פלפל חריף/.test(x.n));if(i>=0){ing.splice(i,1);ch.push('הוסר הצ׳ילי')}else ch.push('לא להוסיף פלפל חריף')}
+ else if(/חריף|פיקנטי/.test(t)){const c=find(/צ׳ילי|צילי/);if(c){c.q*=2;ch.push('כמות הצ׳ילי הוכפלה')}else{ing.push(I('צ׳ילי חריף','🌶️',0.25,'יח׳'));ch.push('נוסף צ׳ילי חריף (¼ יח׳ למנה)')}}
+ if(/פחות מלח|דל מלח|בלי מלח/.test(t)){const c=find(/מלח|סויה/);if(c){c.q*=0.5;ch.push(c.n+' הופחת בחצי')}else ch.push('להמליח במשורה / לא להוסיף מלח')}
+ if(/יותר שום/.test(t)){const c=find(/שום/);if(c){c.q*=1.5;ch.push('כמות השום הוגדלה פי 1.5')}else{ing.push(I('שום','🧄',1,'שן'));ch.push('נוסף שום')}}
+ if(/פחות שום|בלי שום/.test(t)){const i=ing.findIndex(x=>/שום/.test(x.n));if(i>=0){ing.splice(i,1);ch.push('השום הוסר')}}
+ if(/בלי בצל/.test(t)){const i=ing.findIndex(x=>/בצל/.test(x.n));if(i>=0){ing.splice(i,1);ch.push('הבצל הוסר')}}
+ if(/בלי גבינה|טבעוני|ללא חלב/.test(t)){for(let i=ing.length-1;i>=0;i--)if(/גבינ|פרמזן|מוצרלה|חלב/.test(ing[i].n)){ch.push(ing[i].n+' הוסר');ing.splice(i,1)}}
+ if(/יותר ירקות/.test(t)){ing.forEach(x=>{if(/עגבני|פלפל|מלפפון|גזר|ברוקולי|קישוא|פטריות|כרוב/.test(x.n))x.q*=1.3});ch.push('כמות הירקות הוגדלה ב-30%')}
+ return {ing,ch};}
+function noteH(d){if(!d.note)return'';const c=eff(d).ch;return `<div class="chg">📝 דיוק: ${esc(d.note)}${c.length?'<br>🔧 שינויים: '+c.map(esc).join(' · '):'<br>ℹ️ ההערה תילקח בחשבון בהכנה (לא בוצע שינוי אוטומטי)'}</div>`}
+function refineH(d,i,p){return `<div class="refine"><b>🎯 דיוק המנה</b><input id="note${i}" placeholder="לדוגמה: רוצה יותר חריף / פחות מלח / בלי בצל" value="${esc(d.note)}" onchange="cur.dishes[${i}].note=this.value;rSugg()">${noteH(d)}
+ <div class="ctr" style="margin-top:6px"><span>מנות נוספות:</span><button onclick="xtra(${i},-1)">−</button><b id="ex${i}">${d.extra||0}</b><button onclick="xtra(${i},1)">+</button><span class="muted">סה״כ ${fmt(dp(d,p))} מנות</span></div></div>`}
+window.xtra=(i,k)=>{const d=cur.dishes[i];d.extra=Math.max(0,(d.extra||0)+k);rSugg()};
+const REG=[];
+function chatH(d){const k=REG.push(d)-1;return `<div class="chat"><b>💬 שאל על המנה</b><div id="cl${k}">${(d.chat||[]).map(c=>`<div class="q">❓ ${esc(c.q)}</div><div class="a"><div class="ai">${esc(c.src)}</div>${esc(c.a)}</div>`).join('')}</div>
+ <div class="row"><input id="cq${k}" placeholder="לדוגמה: במה אפשר להחליף את הביצים?"><button class="sm" id="cb${k}" onclick="askUI(${k})">שאל</button></div></div>`}
+window.askUI=async k=>{const d=REG[k],inp=$('#cq'+k),q=inp.value.trim();if(!q)return;inp.value='';const r=await askDishAI(d,q);(d.chat=d.chat||[]).push({q,a:r.answer,src:r.src});
+ $('#cl'+k).insertAdjacentHTML('beforeend',`<div class="q">❓ ${esc(q)}</div><div class="a"><div class="ai">${esc(r.src)}</div>${esc(r.answer)}</div>`);persistChat()};
+function persistChat(){const a=ALL();a.forEach(m=>{if(cur&&m.id==cur.id)m.dishes=JSON.parse(JSON.stringify(cur.dishes))});SAVE(a)}
+async function askDishAI(dish,question){
+ if(AI_ENDPOINT){try{const r=await fetch(AI_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({dish,question})});const j=await r.json();return{answer:j.answer,src:'תשובת AI'}}catch(e){/* fallback */}}
+ return{answer:localAnswer(dish,question)+'\n\n'+DISC,src:'תשובה בסיסית (הדגמה, ללא AI)'}}
+const SUBS={'ביצים':'רסק תפוחים (¼ כוס לביצה) או זרעי פשתן טחונים עם מים','חמאה':'שמן זית או שמן קוקוס','פרמזן':'שמרי בירה או גבינה קשה אחרת','מוצרלה':'גבינה צהובה או טופו','שמנת':'חלב קוקוס','בשר טחון':'עדשים או טופו מפורר','חזה עוף':'טופו או פרגיות','כרעי עוף':'פרגיות או ירקות שורש לגרסה צמחונית','רוטב סויה':'טמארי (ללא גלוטן)','פסטה':'פסטה ללא גלוטן או קישואים ספירלה','טחינה':'חמאת בוטנים בהירה (בזהירות לאלרגיות)','לחמניות':'לחמניות ללא גלוטן או עלי חסה','אורז ארבוריו':'אורז עגול רגיל','בזיליקום':'פטרוזיליה','מיונז':'יוגורט'};
+function localAnswer(d,q){const E=eff(d).ing,n=d.n,hit=E.find(x=>q.includes(x.n)||x.n.split(' ').some(w=>w.length>2&&q.includes(w)));
+ if(/להחליף|תחליף|במקום|אין לי|אלרג|רגיש|טבעוני|צמחוני|גלוטן/.test(q)){const list=(hit?[hit]:E).map(x=>SUBS[x.n]?`${x.n} ← ${SUBS[x.n]}`:null).filter(Boolean);return list.length?'תחליפים אפשריים:\n'+list.join('\n'):(hit?`אין לי תחליף מוכן ל${hit.n}. אפשר לנסות מרכיב בעל מרקם/טעם דומה.`:'ציין איזה מרכיב תרצה להחליף.')}
+ if(/זמן|כמה זמן|מתי|דקות|שעה/.test(q))return `זמן ההכנה המשוער של ${n}: כ-${d.min} דקות. בתוכנית מומלץ להתחיל כ-${d.min+15} דקות לפני הארוחה.`;
+ if(/כמה|כמות|גרם|מנות/.test(q)){if(hit)return `${hit.n}: ${fmt(hit.q)} ${hit.u} למנה אחת.`;return 'כמויות למנה אחת:\n'+E.map(x=>`${x.n}: ${fmt(x.q)} ${x.u}`).join('\n')}
+ if(/איך|שלב|הכנה|מכינים|להכין/.test(q))return d.steps.length?'שלבי ההכנה:\n'+d.steps.map((s,i)=>`${i+1}. ${s}`).join('\n'):'לא הוזנו שלבי הכנה למנה זו.';
+ if(/מרכיב|מה צריך|מה יש|רכיב/.test(q)||hit)return hit?`כן, ${n} כולל ${hit.n} (${fmt(hit.q)} ${hit.u} למנה).`:'המרכיבים: '+E.map(x=>x.n).join(', ');
+ if(/להקפיא|לשמור|מקרר|למחרת/.test(q))return 'באופן כללי: לקרר בכלי סגור ולצרוך תוך 2–3 ימים. הקפאה מתאימה לרוב לתבשילים, פחות לסלטים טריים.';
+ if(/ילד/.test(q))return 'לילדים מומלץ להפחית חריפות ותיבול, ולהגיש בנפרד רכיבים שהם לא אוהבים. בתוכנית ילד נחשב לחצי מנה.';
+ return `לא מצאתי תשובה מדויקת. על ${n} אני יודע: מרכיבים (${E.map(x=>x.n).join(', ')}), זמן הכנה ~${d.min} דק׳ ו-${d.steps.length} שלבי הכנה. נסה לשאול על כמויות, תחליפים, זמנים או שלבים.`}
+boot();
+if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script></body></html>
