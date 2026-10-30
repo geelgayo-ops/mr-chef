@@ -24,6 +24,9 @@ summary{cursor:pointer;color:#e85d04;font-weight:600;margin-top:6px}
 #toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 16px;border-radius:12px;opacity:0;transition:.3s;z-index:20;max-width:90%;pointer-events:none}#toast.on{opacity:1}
 #busy{display:none}#busy.on{display:flex;position:fixed;inset:0;background:#0006;z-index:30;align-items:center;justify-content:center}#busy>div{background:#fff;padding:20px;border-radius:14px;text-align:center;max-width:80%}.spin{width:36px;height:36px;border:4px solid #f3d3b8;border-top-color:#e85d04;border-radius:50%;margin:0 auto 10px;animation:sp 1s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}
 .chips{display:flex;flex-wrap:wrap;gap:6px}.chip{border:1px solid #f0c9a8;background:#fff;color:#9a3412;border-radius:18px;padding:6px 12px;font-size:14px;cursor:pointer;font-family:inherit}.chip.on{background:#e85d04;color:#fff;border-color:#e85d04}input.big{border:2px solid #e85d04;font-size:17px}
+#fbBtn{position:fixed;bottom:16px;left:16px;z-index:15;background:#e85d04;color:#fff;border:0;border-radius:24px;padding:10px 16px;font-size:15px;box-shadow:0 3px 10px #0003;cursor:pointer}
+#fb{display:none;position:fixed;inset:0;background:#0006;z-index:25;align-items:flex-end;justify-content:center}#fb.on{display:flex}#fb .card{width:100%;max-width:600px;max-height:90vh;overflow:auto;margin:0;border-radius:16px 16px 0 0}
+.fbs button{font-size:30px;background:none;border:0;cursor:pointer;color:#ccc}.fbs button.on{color:#f5a623}
 </style></head><body>
 <header><h1>👨‍🍳 מר שף</h1><div id="who"></div>
 <nav id="nav" class="hide"><button data-v="plan" class="on">תכנון</button><button data-v="saved">הארוחות שלי</button><button data-v="lib">מאגר ארוחות</button><button data-v="comm">קהילה</button></nav></header>
@@ -49,6 +52,14 @@ summary{cursor:pointer;color:#e85d04;font-weight:600;margin-top:6px}
 </section>
 <section id="v-saved" class="hide"></section><section id="v-lib" class="hide"></section><section id="v-comm" class="hide"></section>
 </main>
+<button id="fbBtn" onclick="openFb()">💬 משוב</button>
+<div id="fb" onclick="if(event.target==this)closeFb()"><div class="card"><h2>💬 משוב על מר שף</h2>
+ <label>דירוג כללי</label><div class="fbs" id="fbStars"></div>
+ <label>מה הכי עזר לך?</label><textarea id="fbHelped" rows="2" maxlength="2000"></textarea>
+ <label>מה היה חסר או מבלבל?</label><textarea id="fbMissing" rows="2" maxlength="2000"></textarea>
+ <label>עוד משהו?</label><textarea id="fbFree" rows="2" maxlength="4000"></textarea>
+ <div class="muted">יישמרו גם: המסך הנוכחי, גרסת האפליקציה וסוג הדפדפן.</div>
+ <button class="btn" id="fbSend" onclick="sendFb()">שלח משוב</button><button class="btn sec" onclick="closeFb()">ביטול</button></div></div>
 <script>
 const I=(n,e,q,u,c)=>({n,e,q,u,c});
 const D=(n,e,type,min,ing,stages,tips,ahead)=>({n,e,type,min,ing,stages,tips,ahead,steps:Object.entries(stages).flatMap(([k,v])=>v.map(s=>k+': '+s))});
@@ -329,6 +340,17 @@ function localAnswer(d,q){const E=eff(d).ing,n=d.n,hit=E.find(x=>q.includes(x.n)
  if(/להקפיא|לשמור|מקרר|למחרת/.test(q))return d.ahead?d.ahead+'\n': 'באופן כללי: לקרר בכלי סגור ולצרוך תוך 2–3 ימים. הקפאה מתאימה לרוב לתבשילים, פחות לסלטים טריים.';
  if(/ילד/.test(q))return 'לילדים מומלץ להפחית חריפות ותיבול, ולהגיש בנפרד רכיבים שהם לא אוהבים. בתוכנית ילד נחשב לחצי מנה.';
  return `לא מצאתי תשובה מדויקת. על ${n} אני יודע: מרכיבים (${E.map(x=>x.n).join(', ')}), זמן הכנה ~${d.min} דק׳ ו-${d.steps.length} שלבי הכנה. נסה לשאול על כמויות, תחליפים, זמנים או שלבים.`}
+const APP_VERSION='2026.10.30-fb';let fbStars=0;
+$('#fbStars').innerHTML=[1,2,3,4,5].map(n=>`<button type="button" data-n="${n}">★</button>`).join('');
+document.querySelectorAll('#fbStars button').forEach(b=>b.onclick=()=>{fbStars=+b.dataset.n;document.querySelectorAll('#fbStars button').forEach(x=>x.classList.toggle('on',+x.dataset.n<=fbStars))});
+window.openFb=()=>$('#fb').classList.add('on');window.closeFb=()=>$('#fb').classList.remove('on');
+const curScreen=()=>{const v=['login','plan','saved','lib','comm'].find(x=>!$('#v-'+x).classList.contains('hide'))||'?';return v=='plan'?(!$('#final').classList.contains('hide')?'plan-final':!$('#sugg').classList.contains('hide')?'plan-suggestion':'plan-form'):v};
+window.sendFb=async()=>{const row={stars:fbStars||null,helped:$('#fbHelped').value.trim(),missing:$('#fbMissing').value.trim(),free_text:$('#fbFree').value.trim(),screen:curScreen(),app_version:APP_VERSION,user_agent:navigator.userAgent.slice(0,500)};
+ if(!row.stars&&!row.helped&&!row.missing&&!row.free_text)return msg('נא לדרג או לכתוב משהו');
+ if(!SB)return msg('אין חיבור לשרת – לא ניתן לשלוח משוב כרגע');
+ if(online()){row.user_id=user.id;row.email=user.email}
+ const b=$('#fbSend');b.disabled=true;b.textContent='שולח...';const{error}=await SB.from('feedback').insert(row);b.disabled=false;b.textContent='שלח משוב';
+ if(error)return msg('שליחה נכשלה: '+error.message);closeFb();['#fbHelped','#fbMissing','#fbFree'].forEach(x=>$(x).value='');fbStars=0;document.querySelectorAll('#fbStars button').forEach(x=>x.classList.remove('on'));toast('תודה! המשוב נשלח 🙏')};
 if(SB){SB.auth.getSession().then(({data})=>setSession(data.session));SB.auth.onAuthStateChange((ev,sess)=>{if(ev!='INITIAL_SESSION')setSession(sess)})}else setSession(null);
 if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script></body></html>
