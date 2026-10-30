@@ -23,6 +23,7 @@ summary{cursor:pointer;color:#e85d04;font-weight:600;margin-top:6px}
 .grp{margin:4px 0}.gt{font-weight:700;color:#9a3412;font-size:14px;margin-top:6px}.stg{background:#fffaf5;border:1px solid #f1e3d3;border-radius:10px;padding:4px 10px;margin:6px 0}.stg li{margin:4px 0;line-height:1.5}.tips{background:#fffbea}.ahead{background:#eef7ff}
 #toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 16px;border-radius:12px;opacity:0;transition:.3s;z-index:20;max-width:90%;pointer-events:none}#toast.on{opacity:1}
 #busy{display:none}#busy.on{display:flex;position:fixed;inset:0;background:#0006;z-index:30;align-items:center;justify-content:center}#busy>div{background:#fff;padding:20px;border-radius:14px;text-align:center;max-width:80%}.spin{width:36px;height:36px;border:4px solid #f3d3b8;border-top-color:#e85d04;border-radius:50%;margin:0 auto 10px;animation:sp 1s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}
+.chips{display:flex;flex-wrap:wrap;gap:6px}.chip{border:1px solid #f0c9a8;background:#fff;color:#9a3412;border-radius:18px;padding:6px 12px;font-size:14px;cursor:pointer;font-family:inherit}.chip.on{background:#e85d04;color:#fff;border-color:#e85d04}input.big{border:2px solid #e85d04;font-size:17px}
 </style></head><body>
 <header><h1>👨‍🍳 מר שף</h1><div id="who"></div>
 <nav id="nav" class="hide"><button data-v="plan" class="on">תכנון</button><button data-v="saved">הארוחות שלי</button><button data-v="lib">מאגר ארוחות</button><button data-v="comm">קהילה</button></nav></header>
@@ -37,10 +38,10 @@ summary{cursor:pointer;color:#e85d04;font-weight:600;margin-top:6px}
  <div class="disc" data-disc></div></section>
 <section id="v-plan" class="hide">
  <div class="card" id="formCard"><h2>ספר לי על הארוחה</h2>
-  <label>סגנון אוכל</label><select id="cuisine"></select>
+  <label>סגנון הארוחה (אפשר לבחור כמה)</label><div id="chips" class="chips"></div><select id="cuisine" class="hide"></select>
   <div class="row"><div><label>מבוגרים</label><input id="adults" type="number" min="0" value="4"></div><div><label>ילדים</label><input id="kids" type="number" min="0" value="2"></div></div>
   <div class="row"><div><label>שעת הארוחה</label><input id="time" type="time" value="19:30"></div><div><label>רדיוס חנויות (ק"מ)</label><input id="radius" type="number" min="1" value="5"></div></div>
-  <label>סגנון חופשי (לא חובה)</label><input id="style" placeholder="לדוגמה: ארוחת שישי מרוקאית, צמחוני, מנגל">
+  <label>✍️ כל סגנון שתרצה</label><input id="style" class="big" placeholder="לדוגמה: ארוחת ראש השנה גאורגית, אוכל רחוב ויאטנמי, כמו אצל סבתא">
   <label>הערות למר שף (לא חובה)</label><textarea id="notes" rows="2" placeholder="לדוגמה: ילד אחד לא אוכל חריף, בלי פטריות, יש לנו גריל"></textarea>
   <label style="font-weight:400;display:flex;gap:8px;align-items:center"><input type="checkbox" id="useAI" checked style="width:auto"> 🤖 תכנון חכם עם AI (דורש חשבון; אחרת – מאגר מובנה)</label>
   <button class="btn" id="gen">✨ הצע לי ארוחה</button></div>
@@ -189,6 +190,12 @@ const SB=(window.supabase&&window.supabase.createClient)?window.supabase.createC
 let user=null,cur=null,MEALS={};
 const labelOf=e=>{const p=(e||'').split('@')[0];return p.slice(0,3)+'***'};
 $('#cuisine').innerHTML=Object.keys(DB).map(c=>`<option>${c}</option>`).join('');
+const STYLES=['ביתי ישראלי','ארוחת שישי/חג','ים תיכוני','מרוקאי','עיראקי/כורדי','תורכי/בלקני','תימני','איטלקי','צרפתי','ספרדי','אסייתי','סיני','יפני','תאילנדי','הודי','מקסיקני','אמריקאי/BBQ','גריל/מנגל','חלבי','בשרי','צמחוני','טבעוני','ללא גלוטן','כשר','בריא/קליל','ילדים אוהבים','בראנץ׳','פיקניק','מהיר עד 30 דק׳','חגיגי/אירוח'];
+const MAP={'איטלקי':'איטלקי','צרפתי':'איטלקי','ספרדי':'איטלקי','חלבי':'איטלקי','בראנץ׳':'ים תיכוני','אסייתי':'אסייתי','סיני':'אסייתי','יפני':'אסייתי','תאילנדי':'אסייתי','הודי':'אסייתי','מקסיקני':'אמריקאי / מנגל','אמריקאי/BBQ':'אמריקאי / מנגל','גריל/מנגל':'אמריקאי / מנגל','פיקניק':'אמריקאי / מנגל','ילדים אוהבים':'אמריקאי / מנגל'};
+$('#chips').innerHTML=STYLES.map(x=>`<button type="button" class="chip">${x}</button>`).join('');
+document.querySelectorAll('.chip').forEach(b=>b.onclick=()=>b.classList.toggle('on'));
+const selStyles=()=>[...document.querySelectorAll('.chip.on')].map(b=>b.textContent);
+const nearest=(sel,txt)=>{for(const x of sel)if(MAP[x])return MAP[x];const t=txt||'';if(/איטל|פסט|פיצ|צרפת/.test(t))return'איטלקי';if(/אסי|סינ|יפנ|תאי|הוד|סושי/.test(t))return'אסייתי';if(/מנגל|גריל|המבורג|אמריק|מקסיק/.test(t))return'אמריקאי / מנגל';return'ים תיכוני'};
 function msg(t){alert(t)}
 function toast(t){let e=$('#toast');if(!e){e=document.createElement('div');e.id='toast';document.body.appendChild(e)}e.textContent=t;e.className='on';clearTimeout(e._t);e._t=setTimeout(()=>e.className='',4500)}
 function busy(t){let e=$('#busy');if(!e){e=document.createElement('div');e.id='busy';document.body.appendChild(e)}e.innerHTML=t?`<div><div class="spin"></div>${esc(t)}</div>`:'';e.className=t?'on':''}
@@ -207,10 +214,10 @@ window.show=v=>{document.querySelectorAll('nav button').forEach(b=>b.classList.t
 const P=m=>m.adults+m.kids*0.5,fmt=q=>Math.round(q*10)/10;
 function ingH(d,p){p=dp(d,p);const E=eff(d).ing;if(!E.length)return '<div class="muted">לא הוזנו מרכיבים – מומלץ לרשום את המרכיבים והכמויות למנה אחת</div>';const G={};E.forEach(x=>(G[x.c||'מרכיבים']=G[x.c||'מרכיבים']||[]).push(x));return Object.entries(G).map(([g,L])=>`<div class="grp"><div class="gt">${esc(g)}</div>`+L.map(x=>`<span class="ing">${x.e} ${esc(x.n)}${x.q?`: ${fmt(x.q*p)} ${esc(x.u)}`:''}</span>`).join('')+'</div>').join('')}
 function stepsH(d){if(d.stages){let n=0;return Object.entries(d.stages).map(([k,v])=>`<details class="stg" open><summary>${esc(k)}</summary><ol start="${n+1}">${v.map(s=>(n++,`<li>${esc(s)}</li>`)).join('')}</ol></details>`).join('')+(d.tips&&d.tips.length?`<details class="stg tips"><summary>💡 טיפים וטעויות נפוצות</summary><ul>${d.tips.map(t=>`<li>${esc(t)}</li>`).join('')}</ul></details>`:'')+(d.ahead?`<details class="stg ahead"><summary>🗓️ הכנה מראש</summary><p>${esc(d.ahead)}</p></details>`:'')}return d.steps.length?`<ol>${d.steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ol>`:'<div class="muted">לא הוזנו שלבי הכנה – הכן לפי המתכון המוכר לך: הכנת מרכיבים, בישול/אפייה, טעימה ותיבול, הגשה.</div>'}
-$('#gen').onclick=async()=>{const c=$('#cuisine').value,a=+$('#adults').value||0,k=+$('#kids').value||0;if(a+k<1)return msg('הזן לפחות משתתף אחד');const r=+$('#radius').value||5,style=$('#style').value.trim(),notes=$('#notes').value.trim();
+$('#gen').onclick=async()=>{const sel=selStyles(),st0=$('#style').value.trim();if(sel.length||st0)$('#cuisine').value=nearest(sel,st0);const c=$('#cuisine').value,a=+$('#adults').value||0,k=+$('#kids').value||0;if(a+k<1)return msg('הזן לפחות משתתף אחד');const r=+$('#radius').value||5,style=[...sel,st0].filter(Boolean).join(' · '),notes=$('#notes').value.trim();
  const d=DB[c].dishes,pick=[d.find(x=>x.type=='עיקרית'),...d.filter(x=>x.type!='עיקרית').slice(0,2)].filter(Boolean);
  cur={id:null,cuisine:style||c,adults:a,kids:k,time:$('#time').value,radius:r,notes,dishes:JSON.parse(JSON.stringify(pick)),ready:DB[c].ready.map(([n,e,kind],i)=>({n,e,store:`${kind} לדוגמה #${i+1}`,dist:(Math.random()*r).toFixed(1)}))};
- if(aiOn()){busy('👨‍🍳 מר שף מתכנן את הארוחה... (כ-10–30 שניות)');try{const res=await callAI('suggest_meal',{cuisine:style||c,adults:a,children:k,time:cur.time,radius:r,notes});cur.dishes=res.dishes;cur.ready=(res.ready||[]).map(x=>({...x,dist:''}));cur.ai=true}catch(e){toast(aiErr(e)+' – מוצגת הצעה מהמאגר המובנה')}busy('')}
+ if(aiOn()){busy('👨‍🍳 מר שף מתכנן את הארוחה... (כ-10–30 שניות)');try{const res=await callAI('suggest_meal',{styles:sel,free_text:st0,cuisine:style||c,adults:a,children:k,time:cur.time,radius:r,notes});cur.dishes=res.dishes;cur.ready=(res.ready||[]).map(x=>({...x,dist:''}));cur.ai=true}catch(e){toast(aiErr(e)+' – מוצגת הצעה מהמאגר המובנה')}busy('')}
  else if($('#useAI').checked&&!online())toast('תכנון AI זמין רק לאחר כניסה עם אימייל – מוצגת הצעה מהמאגר המובנה');
  rSugg();};
 function rSugg(){const s=$('#sugg');s.classList.remove('hide');$('#final').classList.add('hide');const p=P(cur);

@@ -19,6 +19,9 @@ const SYS=`אתה "מר שף" – שף ישראלי מנוסה שכותב מתכ
 - min: זמן הכנה כולל בדקות.
 - אל תמציא שמות של חנויות או מותגים אמיתיים. לפריטים מוכנים ציין סוג חנות כללי (מאפייה, מעדנייה, קונדיטוריה...).
 - התחשב בילדים (טעמים עדינים) ובהערות המשתמש.
+- המשתמש עשוי לבחור כמה סגנונות ואילוצים יחד – קיים את כולם במקביל (למשל "תימני"+"טבעוני" = מנות תימניות טבעוניות). הגבלות תזונה הן חובה ולא המלצה:
+  כשר = אין ערבוב בשר וחלב באותה ארוחה, ללא חזיר/פירות ים/בעלי חיים לא כשרים; חלבי = ללא בשר/עוף; בשרי = ללא מוצרי חלב בכל הארוחה (גם בקינוח/פריטים מוכנים); צמחוני = ללא בשר/עוף/דגים; טבעוני = ללא כל מוצר מן החי (כולל ביצים, חלב, דבש); ללא גלוטן = ללא חיטה/שעורה/שיפון/סויה רגילה (השתמש בטמארי) ופריטים מוכנים ללא גלוטן; מהיר עד 30 דק׳ = min של כל מנה ≤ 30.
+- גם הפריטים המוכנים חייבים לעמוד באילוצים.
 - ${DISC}`;
 
 async function gemini(prompt:string, schema:unknown){
@@ -55,7 +58,8 @@ Deno.serve(async req=>{
   if(rl) return j({error:rl.message.includes("rate_limit")?"rate_limit":"usage_error",limit:DAILY_LIMIT},429);
   const b=await req.json(); const a=b.action;
   if(a==="suggest_meal"){
-   const p=`תכנן ארוחה: סגנון "${s(b.cuisine,"ביתי")}", ${+b.adults||0} מבוגרים ו-${+b.children||0} ילדים, שעת ארוחה ${s(b.time,"19:30")}. הערות: ${s(b.notes,"אין")}.
+   const st=Array.isArray(b.styles)?b.styles.slice(0,15).map((x:unknown)=>s(x).slice(0,40)).filter(Boolean):[];
+   const p=`תכנן ארוחה. סגנונות/אילוצים שנבחרו: ${st.length?st.join(", "):"לא נבחרו"}. תיאור חופשי: "${s(b.free_text)||s(b.cuisine,"ביתי")}", ${+b.adults||0} מבוגרים ו-${+b.children||0} ילדים, שעת ארוחה ${s(b.time,"19:30")}. הערות: ${s(b.notes,"אין")}.
 החזר 3-4 מנות להכנה (עיקרית + תוספות/סלט) עם מתכונים מלאים, ו-2-3 פריטים מומלצים לקנייה מוכנה (store = סוג חנות כללי, qty = כמות מומלצת לכל המשתתפים).`;
    const out=await gemini(p,{type:"OBJECT",properties:{dishes:{type:"ARRAY",items:DISH},ready:{type:"ARRAY",items:READY}},required:["dishes","ready"]});
    const dishes=(out.dishes||[]).map(normDish).slice(0,6);
