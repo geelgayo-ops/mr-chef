@@ -27,6 +27,7 @@ summary{cursor:pointer;color:#e85d04;font-weight:600;margin-top:6px}
 #fbBtn{position:fixed;bottom:16px;left:16px;z-index:15;background:#e85d04;color:#fff;border:0;border-radius:24px;padding:10px 16px;font-size:15px;box-shadow:0 3px 10px #0003;cursor:pointer}
 #fb{display:none;position:fixed;inset:0;background:#0006;z-index:25;align-items:flex-end;justify-content:center}#fb.on{display:flex}#fb .card{width:100%;max-width:600px;max-height:90vh;overflow:auto;margin:0;border-radius:16px 16px 0 0}
 .fbs button{font-size:30px;background:none;border:0;cursor:pointer;color:#ccc}.fbs button.on{color:#f5a623}
+.ing.hl{background:#d9f7e0;border:1px solid #34a853;font-weight:600}.warn{background:#fff3cd;color:#7a4b00;border-radius:8px;padding:6px 8px;font-size:13px;margin:4px 0}.chg ul{margin:4px 0;padding-inline-start:18px}
 </style></head><body>
 <header><h1>👨‍🍳 מר שף</h1><div id="who"></div>
 <nav id="nav" class="hide"><button data-v="plan" class="on">תכנון</button><button data-v="saved">הארוחות שלי</button><button data-v="lib">מאגר ארוחות</button><button data-v="comm">קהילה</button></nav></header>
@@ -223,7 +224,7 @@ window.logout=async()=>{store.del('mrchef_demo');if(SB&&user&&!user.demo)await S
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.v));
 window.show=v=>{document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v==v));['login','plan','saved','lib','comm'].forEach(x=>$('#v-'+x).classList.toggle('hide',x!=v));({saved:rSaved,lib:rLib,comm:rComm}[v]||(()=>{}))();scrollTo(0,0)};
 const P=m=>m.adults+m.kids*0.5,fmt=q=>Math.round(q*10)/10;
-function ingH(d,p){p=dp(d,p);const E=eff(d).ing;if(!E.length)return '<div class="muted">לא הוזנו מרכיבים – מומלץ לרשום את המרכיבים והכמויות למנה אחת</div>';const G={};E.forEach(x=>(G[x.c||'מרכיבים']=G[x.c||'מרכיבים']||[]).push(x));return Object.entries(G).map(([g,L])=>`<div class="grp"><div class="gt">${esc(g)}</div>`+L.map(x=>`<span class="ing">${x.e} ${esc(x.n)}${x.q?`: ${fmt(x.q*p)} ${esc(x.u)}`:''}</span>`).join('')+'</div>').join('')}
+function ingH(d,p){p=dp(d,p);const E=eff(d).ing;if(!E.length)return '<div class="muted">לא הוזנו מרכיבים – מומלץ לרשום את המרכיבים והכמויות למנה אחת</div>';const G={};E.forEach(x=>(G[x.c||'מרכיבים']=G[x.c||'מרכיבים']||[]).push(x));return Object.entries(G).map(([g,L])=>`<div class="grp"><div class="gt">${esc(g)}</div>`+L.map(x=>`<span class="ing${(d.hl||[]).includes(x.n)?' hl':''}">${x.e} ${esc(x.n)}${x.q?`: ${fmt(x.q*p)} ${esc(x.u)}`:''}</span>`).join('')+'</div>').join('')}
 function stepsH(d){if(d.stages){let n=0;return Object.entries(d.stages).map(([k,v])=>`<details class="stg" open><summary>${esc(k)}</summary><ol start="${n+1}">${v.map(s=>(n++,`<li>${esc(s)}</li>`)).join('')}</ol></details>`).join('')+(d.tips&&d.tips.length?`<details class="stg tips"><summary>💡 טיפים וטעויות נפוצות</summary><ul>${d.tips.map(t=>`<li>${esc(t)}</li>`).join('')}</ul></details>`:'')+(d.ahead?`<details class="stg ahead"><summary>🗓️ הכנה מראש</summary><p>${esc(d.ahead)}</p></details>`:'')}return d.steps.length?`<ol>${d.steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ol>`:'<div class="muted">לא הוזנו שלבי הכנה – הכן לפי המתכון המוכר לך: הכנת מרכיבים, בישול/אפייה, טעימה ותיבול, הגשה.</div>'}
 $('#gen').onclick=async()=>{const sel=selStyles(),st0=$('#style').value.trim();if(sel.length||st0)$('#cuisine').value=nearest(sel,st0);const c=$('#cuisine').value,a=+$('#adults').value||0,k=+$('#kids').value||0;if(a+k<1)return msg('הזן לפחות משתתף אחד');const r=+$('#radius').value||5,style=[...sel,st0].filter(Boolean).join(' · '),notes=$('#notes').value.trim();
  const d=DB[c].dishes,pick=[d.find(x=>x.type=='עיקרית'),...d.filter(x=>x.type!='עיקרית').slice(0,2)].filter(Boolean);
@@ -278,10 +279,17 @@ const API={
 const fail=(el,e)=>{$(el).innerHTML=`<div class="card muted">שגיאה בטעינה: ${esc(e.message||e)}</div>`};
 async function rSaved(){$('#v-saved').innerHTML='<div class="card muted">טוען...</div>';let all;try{all=await API.mine()}catch(e){return fail('#v-saved',e)}
  $('#v-saved').innerHTML=all.length?all.map(m=>`<div class="card"><h2>${m.dishes.map(d=>d.e).join('')} ${esc(m.cuisine)}</h2><div class="muted">${new Date(m.created||m.id).toLocaleDateString('he-IL')} · ${m.dishes.map(d=>esc(d.n)).join(', ')}</div>
- <div class="stars">${[...Array(10)].map((_,i)=>`<button class="${m.rating==i+1?'on':''}" onclick="rate('${m.id}',${i+1})">${i+1}</button>`).join('')}</div>
- <textarea placeholder="הערות שישותפו עם הקהילה" onchange="cmt('${m.id}',this.value)">${esc(m.comment)}</textarea>
+ <div class="muted">${m.rating?'הדירוג שנשמר: ⭐'+m.rating+'/10':'עוד לא דורג'}${m.comment?' · ההערה שנשמרה: "'+esc(m.comment)+'"':''}</div>
+ <div class="stars" id="st${m.id}">${[...Array(10)].map((_,i)=>`<button class="${m.rating==i+1?'on':''}" onclick="pickRate('${m.id}',${i+1})">${i+1}</button>`).join('')}</div>
+ <textarea id="cm${m.id}" placeholder="הערה שתשותף עם הקהילה (לא חובה)"></textarea>
+ <button class="btn" id="sb${m.id}" onclick="sendRate('${m.id}')">שלח דירוג והערה</button>
  <button class="sm" onclick="view('${m.id}')">📋 פרטים מלאים</button><button class="sm" onclick="del('${m.id}')">🗑️ מחק</button><div id="vw${m.id}"></div></div>`).join(''):'<div class="card muted">עוד לא שמרת ארוחות</div>';}
-window.rate=async(id,r)=>{try{await API.upd(id,{rating:r})}catch(e){toast(e.message)}rSaved()};window.cmt=async(id,v)=>{try{await API.upd(id,{comment:v});toast('ההערה נשמרה')}catch(e){toast(e.message)}};
+const PEND={};
+window.pickRate=(id,r)=>{PEND[id]=r;document.querySelectorAll('#st'+id+' button').forEach((b,i)=>b.classList.toggle('on',i+1==r))};
+window.sendRate=async id=>{const r=PEND[id]??MEALS[id]?.rating??null,c=$('#cm'+id).value.trim();if(r==null&&!c)return msg('בחרו דירוג או כתבו הערה');
+ const p={rating:r};if(c)p.comment=c;const b=$('#sb'+id);b.disabled=true;b.textContent='שולח...';
+ try{await API.upd(id,p);delete PEND[id];toast('תודה! הדירוג נשמר');$('#cm'+id).value='';await rSaved()}catch(e){toast('השליחה נכשלה: '+e.message);b.disabled=false;b.textContent='שלח דירוג והערה'}};
+window.rate=async(id,r)=>{pickRate(id,r);await sendRate(id)};window.cmt=async(id,v)=>{$('#cm'+id).value=v;await sendRate(id)};
 window.del=async id=>{if(confirm('למחוק?')){try{await API.del(id)}catch(e){toast(e.message)}rSaved()}};
 window.view=(id,where='vw')=>{const e=$('#'+where+id);e.innerHTML=e.innerHTML?'':build(MEALS[id])};
 async function rLib(){$('#v-lib').innerHTML='<div class="card muted">טוען...</div>';let l;try{l=await API.lib()}catch(e){return fail('#v-lib',e)}
@@ -297,8 +305,14 @@ async function callAI(action,payload){if(!online())throw new Error('offline');co
  if(error){let m=error.message;try{const j=await error.context.json();m=j.error||m}catch(_){}throw new Error(m)}if(data&&data.error)throw new Error(data.error);return data}
 const aiErr=e=>/rate_limit/.test(e.message)?'הגעת למכסת 50 פניות AI ליום':/offline/.test(e.message)?'AI לא זמין במצב הדגמה':'AI לא זמין כרגע';
 const slim=d=>{const{chat,...x}=d;return x};
-window.aiRefine=async i=>{const d=cur.dishes[i];if(!d.note)return msg('כתבו קודם מה לשנות (למשל: רוצה יותר חריף)');busy('👨‍🍳 מעדכן את "'+d.n+'"...');
- try{const res=await callAI('refine_dish',{dish:slim(d),note:d.note,extra:d.extra||0});cur.dishes[i]={...res.dish,extra:d.extra||0,chat:d.chat,aiNote:d.note,note:''}}catch(e){toast(aiErr(e)+' – הוחלו שינויים בסיסיים בלבד')}busy('');rSugg()};
+function diffIng(a,b){const A={};a.forEach(x=>A[x.n]=x);const out=[],hl=[];b.forEach(x=>{const o=A[x.n];if(!o){out.push(`נוסף: ${x.n} (${fmt(x.q)} ${x.u} למנה)`);hl.push(x.n)}else if(Math.abs(o.q-x.q)>1e-9||o.u!=x.u){out.push(`${x.n}: ${fmt(o.q)} ${o.u} ← ${fmt(x.q)} ${x.u} למנה`);hl.push(x.n)}delete A[x.n]});Object.keys(A).forEach(n=>out.push('הוסר: '+n));return{out,hl}}
+window.aiRefine=async i=>{const d=cur.dishes[i];if(!d.note)return msg('כתבו קודם מה לשנות (למשל: רוצה יותר חריף)');
+ if(!online()){d.refine={ok:false,note:d.note};return rSugg()}
+ busy('👨‍🍳 מעדכן את המתכון…');
+ try{const res=await callAI('refine_dish',{dish:slim(d),note:d.note,extra:d.extra||0});const df=diffIng(d.ing,res.dish.ing);
+  cur.dishes[i]={...res.dish,extra:d.extra||0,chat:d.chat,note:'',hl:df.hl,refine:{ok:true,note:d.note,changes:(res.changes&&res.changes.length?res.changes:[]),diff:df.out}}}
+ catch(e){d.refine={ok:false,note:d.note,why:aiErr(e)}}busy('');rSugg()};
+window.submitNote=i=>{const d=cur.dishes[i];d.note=$('#note'+i).value.trim();if(!d.note)return msg('כתבו מה לשנות במנה');aiRefine(i)};
 const dp=(d,p)=>p+(d.extra||0);
 const has=(d,re)=>d.ing.find(x=>re.test(x.n));
 function eff(d){const ing=d.ing.map(x=>({...x})),ch=[],t=(d.note||'');const find=re=>ing.find(x=>re.test(x.n));
@@ -311,8 +325,11 @@ function eff(d){const ing=d.ing.map(x=>({...x})),ch=[],t=(d.note||'');const find
  if(/בלי גבינה|טבעוני|ללא חלב/.test(t)){for(let i=ing.length-1;i>=0;i--)if(/גבינ|פרמזן|מוצרלה|חלב/.test(ing[i].n)){ch.push(ing[i].n+' הוסר');ing.splice(i,1)}}
  if(/יותר ירקות/.test(t)){ing.forEach(x=>{if(/עגבני|פלפל|מלפפון|גזר|ברוקולי|קישוא|פטריות|כרוב/.test(x.n))x.q*=1.3});ch.push('כמות הירקות הוגדלה ב-30%')}
  return {ing,ch};}
-function noteH(d){const ai=d.aiNote?`<div class="chg">🤖 המתכון עודכן ע״י AI לפי: ${esc(d.aiNote)}${d.tips&&d.tips[0]?'<br>'+esc(d.tips[0]):''}</div>`:'';if(!d.note)return ai;const c=eff(d).ch;return ai+`<div class="chg">📝 דיוק: ${esc(d.note)}${c.length?'<br>🔧 שינויים: '+c.map(esc).join(' · '):'<br>ℹ️ ההערה תילקח בחשבון בהכנה (לא בוצע שינוי אוטומטי)'}</div>`}
-function refineH(d,i,p){return `<div class="refine"><b>🎯 דיוק המנה</b><input id="note${i}" placeholder="לדוגמה: רוצה יותר חריף / פחות מלח / בלי בצל" value="${esc(d.note)}" onchange="cur.dishes[${i}].note=this.value;rSugg()">${online()?`<button class="sm" style="margin-top:6px" onclick="cur.dishes[${i}].note=$('#note${i}').value;aiRefine(${i})">🤖 עדכן את המתכון עם AI לפי הבקשה</button>`:''}${noteH(d)}
+function noteH(d){const R=d.refine;let h='';
+ if(R&&R.ok){const L=[...R.changes,...(R.changes.length?[]:R.diff)];h+=`<div class="chg">✅ <b>המתכון עודכן לפי: "${esc(R.note)}"</b>${L.length?'<ul>'+L.map(x=>`<li>${esc(x)}</li>`).join('')+'</ul>':''}${R.changes.length&&R.diff.length?`<details><summary>שינויי כמויות מדויקים</summary><ul>${R.diff.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></details>`:''}<div class="muted">מרכיבים שהשתנו מסומנים בירוק</div></div>`}
+ if(d.note){const c=eff(d).ch;h+=c.length?`<div class="chg">🔧 עודכן לפי "${esc(d.note)}" (כללים בסיסיים): ${c.map(esc).join(' · ')}</div>`:`<div class="warn">⚠️ לא ניתן לעדכן אוטומטית כרגע — ההערה נשמרה: "${esc(d.note)}"${R&&R.why?' ('+esc(R.why)+')':''}</div>`}
+ return h}
+function refineH(d,i,p){return `<div class="refine"><b>🎯 דיוק המנה</b><input id="note${i}" placeholder="לדוגמה: רוצה יותר חריף / פחות מלח / בלי בצל" value="${esc(d.note)}" onkeydown="if(event.key=='Enter')submitNote(${i})"><button class="sm" style="margin-top:6px" id="nb${i}" onclick="submitNote(${i})">${online()?'🤖 עדכן את המתכון':'✔ שמור הערה'}</button>${noteH(d)}
  <div class="ctr" style="margin-top:6px"><span>מנות נוספות:</span><button onclick="xtra(${i},-1)">−</button><b id="ex${i}">${d.extra||0}</b><button onclick="xtra(${i},1)">+</button><span class="muted">סה״כ ${fmt(dp(d,p))} מנות</span></div></div>`}
 window.xtra=(i,k)=>{const d=cur.dishes[i];d.extra=Math.max(0,(d.extra||0)+k);rSugg()};
 const REG=[];

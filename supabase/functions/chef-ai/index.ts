@@ -68,8 +68,10 @@ Deno.serve(async req=>{
    return j({dishes,ready,calls,disclaimer:DISC});
   }
   if(a==="refine_dish"){
-   const p=`עדכן את המתכון הבא לפי בקשת המשתמש: "${s(b.note)}"${b.extra?` (המשתמש יוסיף ${+b.extra} מנות – אין צורך לשנות כמויות למנה)`:""}. שמור על אותו מבנה; שנה מרכיבים/כמויות/שלבים לפי הצורך וציין בטיפ הראשון מה שונה.\nמתכון:\n${JSON.stringify(toAI(b.dish)).slice(0,12000)}`;
-   return j({dish:normDish(await gemini(p,DISH)),calls});
+   const p=`עדכן את המתכון הבא לפי בקשת המשתמש: "${s(b.note)}"${b.extra?` (המשתמש יוסיף ${+b.extra} מנות – אין צורך לשנות כמויות למנה)`:""}. שמור על אותו מבנה; שנה מרכיבים/כמויות/שלבים לפי הצורך ובשדה changes כתוב 1-5 משפטים קצרים בעברית שמתארים בדיוק מה שונה (למשל "הוספתי 1 כף דבש למנה", "הגדלתי את הפפריקה ל-½ כפית למנה"). אל תוסיף טיפ שמתאר את השינוי.\nמתכון:\n${JSON.stringify(toAI(b.dish)).slice(0,12000)}`;
+   const out=await gemini(p,{type:"OBJECT",properties:{dish:DISH,changes:{type:"ARRAY",items:{type:"STRING"}}},required:["dish","changes"]});
+   const changes=(Array.isArray(out.changes)?out.changes:[]).map((x:unknown)=>s(x).slice(0,200)).filter(Boolean).slice(0,6);
+   return j({dish:normDish(out.dish),changes,calls});
   }
   if(a==="add_custom_dish"){
    const p=`כתוב מתכון מלא למנה "${s(b.name)}".${b.text?` פרטים מהמשתמש (מרכיבים/שלבים/העדפות – התבסס עליהם): ${s(b.text)}`:""}${b.cuisine?` סגנון הארוחה: ${s(b.cuisine)}.`:""}`;
