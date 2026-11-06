@@ -47,7 +47,8 @@ summary{cursor:pointer;color:#e85d04;font-weight:600;margin-top:6px}
   <div class="row"><div><label>שעת הארוחה</label><input id="time" type="time" value="19:30"></div><div><label>רדיוס חנויות (ק"מ)</label><input id="radius" type="number" min="1" value="5"></div></div>
   <label>✍️ כל סגנון שתרצה</label><input id="style" class="big" placeholder="לדוגמה: ארוחת ראש השנה גאורגית, אוכל רחוב ויאטנמי, כמו אצל סבתא">
   <label>הערות למר שף (לא חובה)</label><textarea id="notes" rows="2" placeholder="לדוגמה: ילד אחד לא אוכל חריף, בלי פטריות, יש לנו גריל"></textarea>
-  <label style="font-weight:400;display:flex;gap:8px;align-items:center"><input type="checkbox" id="useAI" checked style="width:auto"> 🤖 תכנון חכם עם AI (דורש חשבון; אחרת – מאגר מובנה)</label>
+  <label style="font-weight:400;display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="useAI" checked style="width:auto;margin-top:4px"> <span>🤖 תכנון חכם עם Gemini<br><span class="muted" style="font-weight:400">כניסה עם חשבון אימייל תאפשר תכנון חכם עם Gemini. בלי כניסה ייעשה שימוש במאגר מצומצם, והארוחות יישמרו רק במכשיר הזה.</span></span></label>
+  <div id="locRow" class="muted" style="margin-top:8px">📍 מיקום חנויות: <button type="button" class="sm" id="locBtn" onclick="askLoc()">אשר מיקום כדי למצוא חנויות קרובות</button> <span id="locStat"></span></div>
   <button class="btn" id="gen">✨ הצע לי ארוחה</button></div>
  <div id="sugg" class="hide"></div><div id="final" class="hide"></div>
 </section>
@@ -226,12 +227,79 @@ window.show=v=>{document.querySelectorAll('nav button').forEach(b=>b.classList.t
 const P=m=>m.adults+m.kids*0.5,fmt=q=>Math.round(q*10)/10;
 function ingH(d,p){p=dp(d,p);const E=eff(d).ing;if(!E.length)return '<div class="muted">לא הוזנו מרכיבים – מומלץ לרשום את המרכיבים והכמויות למנה אחת</div>';const G={};E.forEach(x=>(G[x.c||'מרכיבים']=G[x.c||'מרכיבים']||[]).push(x));return Object.entries(G).map(([g,L])=>`<div class="grp"><div class="gt">${esc(g)}</div>`+L.map(x=>`<span class="ing${(d.hl||[]).includes(x.n)?' hl':''}">${x.e} ${esc(x.n)}${x.q?`: ${fmt(x.q*p)} ${esc(x.u)}`:''}</span>`).join('')+'</div>').join('')}
 function stepsH(d){if(d.stages){let n=0;return Object.entries(d.stages).map(([k,v])=>`<details class="stg" open><summary>${esc(k)}</summary><ol start="${n+1}">${v.map(s=>(n++,`<li>${esc(s)}</li>`)).join('')}</ol></details>`).join('')+(d.tips&&d.tips.length?`<details class="stg tips"><summary>💡 טיפים וטעויות נפוצות</summary><ul>${d.tips.map(t=>`<li>${esc(t)}</li>`).join('')}</ul></details>`:'')+(d.ahead?`<details class="stg ahead"><summary>🗓️ הכנה מראש</summary><p>${esc(d.ahead)}</p></details>`:'')}return d.steps.length?`<ol>${d.steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ol>`:'<div class="muted">לא הוזנו שלבי הכנה – הכן לפי המתכון המוכר לך: הכנת מרכיבים, בישול/אפייה, טעימה ותיבול, הגשה.</div>'}
+
+let LOC=null;
+const OV_URLS=['https://overpass-api.de/api/interpreter','https://lz4.overpass-api.de/api/interpreter','https://overpass.osm.ch/api/interpreter'];
+const KIND_TAGS={
+ 'מאפייה':['shop=bakery','shop=pastry'],
+ 'קונדיטוריה':['shop=confectionery','shop=pastry','shop=bakery'],
+ 'מעדנייה':['shop=deli','shop=convenience','shop=supermarket','shop=greengrocer'],
+ 'מעדנייה אסייתית':['shop=convenience','shop=supermarket','amenity=restaurant'],
+ 'פיצרייה':['cuisine=pizza','amenity=fast_food','amenity=restaurant'],
+ 'מסעדת סושי':['cuisine=sushi','cuisine=japanese','amenity=restaurant'],
+ 'חומוסייה':['amenity=restaurant','amenity=fast_food','shop=deli'],
+ 'חנות אוכל מוכן':['shop=convenience','shop=supermarket','shop=deli'],
+ 'חנות לבחירתך':['shop=supermarket','shop=convenience']
+};
+function kindFromStore(st){const t=(st||'');
+ if(/מאפי|לחם|פיתה|פוקאצ|בריוש|לחמני/.test(t))return'מאפייה';
+ if(/קונד|ממתק|עוג|קינוח|טירמיס|בקלאוו|גלידה|שוקולד/.test(t))return'קונדיטוריה';
+ if(/סושי|יפנ/.test(t))return'מסעדת סושי';
+ if(/פיצ/.test(t))return'פיצרייה';
+ if(/חומוס/.test(t))return'חומוסייה';
+ if(/אסיית|סינ|תאי|ויאט|קרי|גיוזה/.test(t))return'מעדנייה אסייתית';
+ if(/מעדני|סלט|חמוצ|גבינ|דלי/.test(t))return'מעדנייה';
+ return'חנות אוכל מוכן'}
+function haversine(a,b,c,d){const R=6371,to=x=>x*Math.PI/180,dLat=to(c-a),dLon=to(d-b);const x=Math.sin(dLat/2)**2+Math.cos(to(a))*Math.cos(to(c))*Math.sin(dLon/2)**2;return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x))}
+function locOk(){return LOC&&Date.now()-LOC.ts<15*60*1000}
+function setLocStat(){const e=$('#locStat');if(!e)return;e.textContent=locOk()?`✓ מיקום זמין (${LOC.lat.toFixed(3)}, ${LOC.lon.toFixed(3)})`:(LOC?'מיקום ישן – לחצו לאישור מחדש':'')}
+window.setLoc=(lat,lon)=>{LOC={lat:+lat,lon:+lon,ts:Date.now()};setLocStat();return LOC};
+window.askLoc=()=>new Promise((ok)=>{
+ if(locOk())return ok(LOC);
+ if(!navigator.geolocation){toast('הדפדפן לא תומך במיקום');return ok(null)}
+ navigator.geolocation.getCurrentPosition(p=>{ok(setLoc(p.coords.latitude,p.coords.longitude))},err=>{toast(err.code==1?'המיקום נחסם – מוצגים סוגי חנויות בלבד':'לא הצלחנו לקבל מיקום');ok(null)},{enableHighAccuracy:false,timeout:15000,maximumAge:600000})});
+async function overpass(q){let last;for(const u of OV_URLS){try{const ctrl=new AbortController();const t=setTimeout(()=>ctrl.abort(),45000);const r=await fetch(u,{method:'POST',body:'data='+encodeURIComponent(q),signal:ctrl.signal});clearTimeout(t);if(!r.ok){last='HTTP '+r.status;continue}const j=await r.json();if(!(j.elements&&j.elements.length)){last='empty from '+u;continue}return j}catch(e){last=e.name==='AbortError'?'timeout':e.message}}throw new Error(last||'overpass')}
+async function fetchStores(lat,lon,radiusKm){const m=Math.min(Math.max(radiusKm,0.5),20)*1000;
+ const q=`[out:json][timeout:25];(
+ node["shop"~"^(bakery|confectionery|supermarket|convenience|greengrocer|butcher|pastry|deli|cheese|seafood)$"](around:${m},${lat},${lon});
+ way["shop"~"^(bakery|confectionery|supermarket|convenience|greengrocer|butcher|pastry|deli)$"](around:${m},${lat},${lon});
+ node["amenity"~"^(cafe|restaurant|fast_food)$"]["name"](around:${m},${lat},${lon});
+ way["amenity"~"^(cafe|restaurant|fast_food)$"]["name"](around:${m},${lat},${lon});
+ );out center tags;`;
+ const data=await overpass(q);const out=[];
+ for(const e of data.elements||[]){const t=e.tags||{},name=(t.name||t['name:he']||t['name:en']||'').trim();if(!name)continue;
+  const la=e.lat||(e.center||{}).lat,lo=e.lon||(e.center||{}).lon;if(la==null||lo==null)continue;
+  const dist=haversine(lat,lon,la,lo);if(dist>radiusKm+0.05)continue;
+  out.push({name,lat:la,lon:lo,dist,shop:t.shop||'',amenity:t.amenity||'',cuisine:(t.cuisine||'').toLowerCase(),type:t.shop||t.amenity||''})}
+ out.sort((a,b)=>a.dist-b.dist);return out}
+function matchStore(kind,stores,used){const tags=KIND_TAGS[kind]||KIND_TAGS['חנות אוכל מוכן'];
+ const score=s=>{let sc=0;for(const tag of tags){const[k,v]=tag.split('=');if(k==='cuisine'&&s.cuisine.includes(v))sc+=5;if(k==='shop'&&s.shop==v)sc+=4;if(k==='amenity'&&s.amenity==v)sc+=3}if(kind==='פיצרייה'&&/פיצ|pizza/i.test(s.name))sc+=4;if(kind==='מסעדת סושי'&&/סושי|sushi/i.test(s.name))sc+=4;if(kind==='מאפייה'&&/מאפי|בייקרי|bakery|לחם/i.test(s.name))sc+=2;return sc};
+ const ranked=stores.map(s=>({s,sc:score(s)})).filter(x=>x.sc>0).sort((a,b)=>b.sc-a.sc||a.s.dist-b.s.dist);
+ for(const x of ranked){const k=x.s.name+'|'+x.s.lat;if(used.has(k)&&ranked.length>1)continue;used.add(k);return x.s}
+ return null}
+async function enrichReady(items,radius){let loc=locOk()?LOC:null;if(!loc)loc=await askLoc();
+ if(!loc)return{items:items.map(x=>({...x,store:kindFromStore(x.store||x.n),dist:'',lat:null,lon:null,real:false})),msg:'לא נמצאו חנויות אמיתיות (המיקום לא זמין) — מוצגים סוגי חנויות בלבד',real:false};
+ try{busy('📍 מחפש חנויות קרובות ב-OpenStreetMap...');const stores=await fetchStores(loc.lat,loc.lon,radius);busy('');
+  if(!stores.length)return{items:items.map(x=>({...x,store:kindFromStore(x.store||x.n),dist:'',real:false})),msg:'לא נמצאו חנויות אמיתיות ברדיוס שנבחר — מוצגים סוגי חנויות בלבד',real:false};
+  const used=new Set();
+  const out=items.map(x=>{const kind=kindFromStore(x.store||x.n);const s=matchStore(kind,stores,used);
+   if(!s)return{...x,store:kind+' (לא נמצאה חנות ברדיוס)',dist:'',real:false};
+   return{...x,store:s.name,kind,dist:s.dist.toFixed(1),lat:s.lat,lon:s.lon,real:true,maps:`https://www.google.com/maps/search/?api=1&query=${s.lat},${s.lon}`,osm:`https://www.openstreetmap.org/?mlat=${s.lat}&mlon=${s.lon}#map=18/${s.lat}/${s.lon}`}});
+  return{items:out,msg:'על פי OpenStreetMap · חנויות אמיתיות ברדיוס '+radius+' ק"מ',real:out.some(x=>x.real)}}
+ catch(e){busy('');return{items:items.map(x=>({...x,store:kindFromStore(x.store||x.n),dist:'',real:false})),msg:'לא נמצאו חנויות אמיתיות (החיפוש נכשל: '+(e.message||e)+') — מוצגים סוגי חנויות בלבד',real:false}}}
+function readyNote(){if(!cur.storesNote)return`<div class="muted">לחצו על "רענן חנויות" כדי למצוא חנויות אמיתיות לידכם (OpenStreetMap)</div>`;
+ return `<div class="${cur.storesReal?'muted':'warn'}">${esc(cur.storesNote)}</div>`}
+function readyH(){return cur.ready.map((r,i)=>`<div class="dish"><div class="dh"><span class="emo">${r.e}</span><div class="t"><b>${esc(r.n)}</b><div class="muted">${esc(r.store)}${r.dist?` · ${r.dist} ק"מ`:''}${r.qty?` · כמות: ${esc(r.qty)}`:''}${r.kind&&r.real?` · ${esc(r.kind)}`:''}</div>
+  ${r.real&&r.maps?`<div><a class="sm" href="${r.maps}" target="_blank" rel="noopener">🗺️ Google Maps</a> <a class="sm" href="${r.osm}" target="_blank" rel="noopener">OSM</a></div>`:''}
+ </div><button class="sm" onclick="cur.ready.splice(${i},1);rSugg()">🗑️</button></div></div>`).join('')}
+window.refreshStores=async()=>{const r=await enrichReady(cur.ready,cur.radius||5);cur.ready=r.items;cur.storesNote=r.msg;cur.storesReal=r.real;rSugg()};
 $('#gen').onclick=async()=>{const sel=selStyles(),st0=$('#style').value.trim();if(sel.length||st0)$('#cuisine').value=nearest(sel,st0);const c=$('#cuisine').value,a=+$('#adults').value||0,k=+$('#kids').value||0;if(a+k<1)return msg('הזן לפחות משתתף אחד');const r=+$('#radius').value||5,style=[...sel,st0].filter(Boolean).join(' · '),notes=$('#notes').value.trim();
  const d=DB[c].dishes,pick=[d.find(x=>x.type=='עיקרית'),...d.filter(x=>x.type!='עיקרית').slice(0,2)].filter(Boolean);
- cur={id:null,cuisine:style||c,adults:a,kids:k,time:$('#time').value,radius:r,notes,dishes:JSON.parse(JSON.stringify(pick)),ready:DB[c].ready.map(([n,e,kind],i)=>({n,e,store:`${kind} לדוגמה #${i+1}`,dist:(Math.random()*r).toFixed(1)}))};
- if(aiOn()){busy('👨‍🍳 מר שף מתכנן את הארוחה... (כ-10–30 שניות)');try{const res=await callAI('suggest_meal',{styles:sel,free_text:st0,cuisine:style||c,adults:a,children:k,time:cur.time,radius:r,notes});cur.dishes=res.dishes;cur.ready=(res.ready||[]).map(x=>({...x,dist:''}));cur.ai=true}catch(e){toast(aiErr(e)+' – מוצגת הצעה מהמאגר המובנה')}busy('')}
+ cur={id:null,cuisine:style||c,adults:a,kids:k,time:$('#time').value,radius:r,notes,dishes:JSON.parse(JSON.stringify(pick)),ready:DB[c].ready.map(([n,e,kind])=>({n,e,store:kind,dist:'',real:false})),storesNote:'',storesReal:false};
+ if(aiOn()){busy('👨‍🍳 מר שף מתכנן את הארוחה... (כ-10–30 שניות)');try{const res=await callAI('suggest_meal',{styles:sel,free_text:st0,cuisine:style||c,adults:a,children:k,time:cur.time,radius:r,notes});cur.dishes=res.dishes;cur.ready=(res.ready||[]).map(x=>({...x,store:x.store||kindFromStore(x.n),dist:'',real:false}));cur.ai=true}catch(e){toast(aiErr(e)+' – מוצגת הצעה מהמאגר המובנה')}busy('')}
  else if($('#useAI').checked&&!online())toast('תכנון AI זמין רק לאחר כניסה עם אימייל – מוצגת הצעה מהמאגר המובנה');
- rSugg();};
+ const en=await enrichReady(cur.ready,r);cur.ready=en.items;cur.storesNote=en.msg;cur.storesReal=en.real;
+ rSugg();setLocStat();};
 function rSugg(){const s=$('#sugg');s.classList.remove('hide');$('#final').classList.add('hide');const p=P(cur);
  const avail=Object.values(DB).flatMap(x=>x.dishes).filter(d=>!cur.dishes.some(x=>x.n==d.n));
  s.innerHTML=`<div class="card"><h2>🍽️ ההצעה של מר שף</h2><div class="muted">${cur.cuisine} · ${cur.adults} מבוגרים, ${cur.kids} ילדים (${fmt(p)} מנות) · ${cur.time}</div>${discH}
@@ -244,8 +312,8 @@ function rSugg(){const s=$('#sugg');s.classList.remove('hide');$('#final').class
   <label>שלבי הכנה (שורה לכל שלב)</label><textarea id="fdSteps" rows="3" placeholder="מחממים תנור ל-180&#10;מערבבים את כל המרכיבים&#10;אופים 40 דקות"></textarea>
   <div class="row"><div><label>זמן הכנה (דק׳)</label><input id="fdMin" type="number" value="30"></div><div><label>סוג</label><select id="fdType"><option>עיקרית</option><option>תוספת</option><option>סלט</option><option>מתאבן</option><option>קינוח</option></select></div></div>
   <button class="btn sec" id="fdAdd" onclick="addFree()">➕ הוסף מנה</button></div>
- <h3>🛍️ לקנות מוכן (רדיוס ${cur.radius} ק"מ)</h3><div class="muted">⚠️ נתוני חנויות לדוגמה בלבד</div>
- ${cur.ready.map((r,i)=>`<div class="dish"><div class="dh"><span class="emo">${r.e}</span><div class="t"><b>${esc(r.n)}</b><div class="muted">${esc(r.store)}${r.dist?` · ${r.dist} ק"מ`:''}${r.qty?` · כמות: ${esc(r.qty)}`:''}</div></div><button class="sm" onclick="cur.ready.splice(${i},1);rSugg()">🗑️</button></div></div>`).join('')}
+ <h3>🛍️ לקנות מוכן (רדיוס ${cur.radius} ק"מ) <button class="sm" onclick="refreshStores()">🔄 רענן חנויות</button></h3>${readyNote()}
+ ${readyH()}
  <div class="add"><b>✍️ הוסף פריט לקנייה מוכן</b><div class="row"><input id="frName" placeholder="לדוגמה: עוגת שוקולד"><input id="frQty" placeholder="כמות (לא חובה)"></div><input id="frStore" style="margin-top:6px" placeholder="איפה לקנות? (לא חובה, לדוגמה: קונדיטוריה)"><button class="btn sec" id="frAdd" onclick="addReady()">➕ הוסף פריט</button></div>
  <button class="btn" id="confirmBtn" onclick="confirmM()">✅ אשר ארוחה וקבל רשימת קניות ותוכנית</button></div>`;}
 window.addFromList=()=>{const v=$('#addSel').value;cur.dishes.push(JSON.parse(JSON.stringify(Object.values(DB).flatMap(x=>x.dishes).find(d=>d.n==v))));rSugg();};
@@ -260,7 +328,7 @@ const toM=t=>{const[h,m]=t.split(':');return +h*60+ +m},toT=m=>{m=(m+1440)%1440;
 function build(m){const p=P(m),shop={};m.dishes.forEach(d=>eff(d).ing.forEach(x=>{const k=x.n+'|'+x.u;shop[k]=shop[k]||{...x,q:0};shop[k].q+=x.q*dp(d,p)}));
  const T=toM(m.time),tl=[{t:T-150,s:'🛒 קניות + איסוף פריטים מוכנים'}];[...m.dishes].sort((a,b)=>b.min-a.min).forEach(d=>tl.push({t:T-d.min-15,s:`${d.e} להתחיל להכין: ${d.n} (${d.min} דק׳)`}));tl.push({t:T-10,s:'🍽️ עריכת שולחן וחימום מוכנים'},{t:T,s:'🎉 ארוחה!'});tl.sort((a,b)=>a.t-b.t);
  return `<div class="card"><h2>📋 תוכנית ארוחה – ${esc(m.cuisine)}</h2><div class="muted">${m.adults} מבוגרים, ${m.kids} ילדים = ${fmt(p)} מנות (ילד = חצי מנה) · ${m.time}</div>${discH}</div>
- <div class="card shop"><h2>🛒 רשימת קניות</h2><h3>מצרכים</h3>${Object.values(shop).map(x=>`<label><input type="checkbox"> ${x.e} ${esc(x.n)}${x.q?` – ${fmt(x.q)} ${esc(x.u)}`:''}</label>`).join('')||'<div class="muted">אין</div>'}<h3>לקנות מוכן</h3>${m.ready.map(r=>`<label><input type="checkbox"> ${r.e} ${esc(r.n)}${r.qty?` (${esc(r.qty)})`:''} – ${esc(r.store)}</label>`).join('')||'<div class="muted">אין</div>'}</div>
+ <div class="card shop"><h2>🛒 רשימת קניות</h2><h3>מצרכים</h3>${Object.values(shop).map(x=>`<label><input type="checkbox"> ${x.e} ${esc(x.n)}${x.q?` – ${fmt(x.q)} ${esc(x.u)}`:''}</label>`).join('')||'<div class="muted">אין</div>'}<h3>לקנות מוכן</h3>${m.ready.map(r=>`<label><input type="checkbox"> ${r.e} ${esc(r.n)}${r.qty?` (${esc(r.qty)})`:''} – ${esc(r.store)}${r.dist?` · ${r.dist} ק"מ`:''}${r.maps?` <a href="${r.maps}" target="_blank" rel="noopener">מפה</a>`:''}</label>`).join('')||'<div class="muted">אין</div>'}</div>
  <div class="card"><h2>⏰ לוח זמנים</h2>${tl.map(x=>`<div class="tl"><b>${toT(x.t)}</b> – ${esc(x.s)}</div>`).join('')}</div>
  ${m.dishes.map(d=>`<div class="card"><h2>${d.e} ${esc(d.n)}</h2>${d.extra?`<div class="tag">➕ ${d.extra} מנות נוספות (סה״כ ${fmt(dp(d,p))})</div>`:''}${noteH(d)}<h3>מרכיבים</h3>${ingH(d,p)}<h3>אופן הכנה</h3>${stepsH(d)}${chatH(d)}</div>`).join('')}${discH}`;}
 window.confirmM=async()=>{if(!cur.dishes.length&&!cur.ready.length)return msg('הוסף לפחות מנה או פריט');busy('שומר...');try{cur.id=await API.add(cur)}catch(e){toast('שמירה נכשלה: '+e.message)}busy('');
