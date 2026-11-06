@@ -463,8 +463,8 @@ window.sendFb=async()=>{const row={stars:fbStars||null,helped:$('#fbHelped').val
 // ===== PDF ושיתוף (jsPDF + Noto Sans Hebrew מוטמע — ללא html2canvas) =====
 function shopList(m){const p=P(m),shop={};m.dishes.forEach(d=>eff(d).ing.forEach(x=>{const k=x.n+'|'+x.u;shop[k]=shop[k]||{...x,q:0};shop[k].q+=x.q*dp(d,p)}));return Object.values(shop)}
 function rtlStr(s){s=String(s??'');
- // VISUAL order for LTR jsPDF (pair with isInputVisual:true). Hebrew letters reversed; numbers/times/URLs kept LTR as atomic tokens; token list reversed for RTL line.
- // Parentheses swapped so the glyph opening a Hebrew phrase on the visual right looks correct to Hebrew readers.
+ // VISUAL order for LTR jsPDF. MUST pair with isInputVisual:true AND isOutputVisual:true (otherwise jsPDF bidi converts visual→logical and Hebrew looks letter-reversed).
+ // Hebrew letters reversed; numbers/times/URLs kept LTR as atomic tokens; token list reversed; () swapped for Hebrew open-on-right.
  const toks=s.match(/https?:\/\/[^\s]+|www\.[^\s]+|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}|\d{1,2}:\d{2}(?::\d{2})?|\d{1,4}[./\-]\d{1,2}[./\-]\d{1,4}|\d+(?:[.,]\d+)?|[A-Za-z]+(?:[A-Za-z0-9._\-\/]*)|[\u0590-\u05FF]+|\s+|./g)||[s];
  const out=[];
  for(const t of toks){
@@ -485,7 +485,7 @@ function pdfWrite(doc,text,xRight,y,opts={}){ensureHebFont(doc);const size=opts.
  const words=String(text).split(/\s+/).filter(Boolean);const lines=[];let cur='';
  const widthOf=t=>doc.getTextWidth(rtlStr(t));
  for(const w of words){const t=cur?cur+' '+w:w;if(widthOf(t)>maxW&&cur){lines.push(cur);cur=w}else cur=t}if(cur)lines.push(cur);if(!lines.length)lines.push('');
- const drawOpt={align:'right',baseline:'top',isInputVisual:true,isOutputRtl:false,isInputRtl:false};
+ const drawOpt={align:'right',baseline:'top',isInputVisual:true,isOutputVisual:true,isInputRtl:false,isOutputRtl:false};
  for(const line of lines){if(y>doc.internal.pageSize.getHeight()-14){doc.addPage();y=16}doc.text(rtlStr(line),xRight,y,drawOpt);y+=lineH}
  return y}
 function pdfHeading(doc,text,y,size=16){const W=doc.internal.pageSize.getWidth();y=pdfWrite(doc,text,W-12,y,{size,color:[232,93,4],lineH:size*0.5+3});doc.setDrawColor(243,211,184);doc.setLineWidth(0.4);doc.line(12,y-1,W-12,y-1);return y+3}
