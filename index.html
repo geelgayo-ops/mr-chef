@@ -227,7 +227,24 @@ window.logout=async()=>{store.del('mrchef_demo');if(SB&&user&&!user.demo)await S
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.v));
 window.show=v=>{document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v==v));['login','plan','saved','lib','comm'].forEach(x=>$('#v-'+x).classList.toggle('hide',x!=v));({saved:rSaved,lib:rLib,comm:rComm}[v]||(()=>{}))();scrollTo(0,0)};
 const P=m=>m.adults+m.kids*0.5,fmt=q=>Math.round(q*10)/10;
-function ingH(d,p){p=dp(d,p);const E=eff(d).ing;if(!E.length)return '<div class="muted">לא הוזנו מרכיבים – מומלץ לרשום את המרכיבים והכמויות למנה אחת</div>';const G={};E.forEach(x=>(G[x.c||'מרכיבים']=G[x.c||'מרכיבים']||[]).push(x));return Object.entries(G).map(([g,L])=>`<div class="grp"><div class="gt">${esc(g)}</div>`+L.map(x=>`<span class="ing${(d.hl||[]).includes(x.n)?' hl':''}">${x.e} ${esc(x.n)}${x.q?`: ${fmt(x.q*p)} ${esc(x.u)}`:''}</span>`).join('')+'</div>').join('')}
+const isMl=u=>/^(מ\"ל|מ״ל|מל|ml|mL|ML)$/i.test(String(u||'').trim());
+function houseMl(ml){ml=+ml;if(!(ml>0))return'';
+ const CUP=240,TBSP=15,TSP=5;
+ if(ml>=60){const cups=ml/CUP;const fracs=[[0,''],[.25,'¼'],[1/3,'⅓'],[.5,'½'],[2/3,'⅔'],[.75,'¾'],[1,'']];
+  let best=null,bd=1e9;for(let whole=0;whole<=10;whole++)for(const[f,lab]of fracs){const v=whole+f;if(v<=0)continue;if(f===1)continue;const d=Math.abs(cups-v);if(d<bd){bd=d;best={whole,lab,v}}}
+  // also exact whole cups
+  for(let whole=1;whole<=10;whole++){const d=Math.abs(cups-whole);if(d<bd){bd=d;best={whole,lab:'',v:whole}}}
+  if(best&&bd/Math.max(cups,.2)<=0.14){const label=(best.whole?String(best.whole):'')+best.lab;const word=best.v===1?'כוס':'כוסות';if(best.v<1)return best.lab+' כוס';return label+' '+word}}
+ if(ml>=12){const n=ml/TBSP;const opts=[[.5,'½'],[1,'1'],[1.5,'1½'],[2,'2'],[2.5,'2½'],[3,'3'],[3.5,'3½'],[4,'4']];
+  let best=null,bd=1e9;for(const[v,lab]of opts){const d=Math.abs(n-v);if(d<bd){bd=d;best={v,lab}}}
+  if(best&&bd<=0.4)return best.v===1?'1 כף':best.lab+(best.v<=1?' כף':' כפות')}
+ {const n=ml/TSP;const opts=[[.5,'½'],[1,'1'],[1.5,'1½'],[2,'2'],[2.5,'2½'],[3,'3'],[4,'4'],[5,'5'],[6,'6']];
+  let best=null,bd=1e9;for(const[v,lab]of opts){const d=Math.abs(n-v);if(d<bd){bd=d;best={v,lab}}}
+  if(best&&bd<=0.35)return best.v===1?'1 כפית':best.lab+(best.v<=1?' כפית':' כפיות')}
+ return''}
+function fmtQty(q,u){const n=fmt(q),unit=String(u||'');if(!q&&q!==0)return'';if(!isMl(unit))return `${n} ${unit}`;const h=houseMl(q);return h?`${n} מ״ל (${h})`:`${n} מ״ל`}
+
+function ingH(d,p){p=dp(d,p);const E=eff(d).ing;if(!E.length)return '<div class="muted">לא הוזנו מרכיבים – מומלץ לרשום את המרכיבים והכמויות למנה אחת</div>';const G={};E.forEach(x=>(G[x.c||'מרכיבים']=G[x.c||'מרכיבים']||[]).push(x));return Object.entries(G).map(([g,L])=>`<div class="grp"><div class="gt">${esc(g)}</div>`+L.map(x=>`<span class="ing${(d.hl||[]).includes(x.n)?' hl':''}">${x.e} ${esc(x.n)}${x.q?`: ${esc(fmtQty(x.q*p,x.u))}`:''}</span>`).join('')+'</div>').join('')}
 function stepsH(d){if(d.stages){let n=0;return Object.entries(d.stages).map(([k,v])=>`<details class="stg" open><summary>${esc(k)}</summary><ol start="${n+1}">${v.map(s=>(n++,`<li>${esc(s)}</li>`)).join('')}</ol></details>`).join('')+(d.tips&&d.tips.length?`<details class="stg tips"><summary>💡 טיפים וטעויות נפוצות</summary><ul>${d.tips.map(t=>`<li>${esc(t)}</li>`).join('')}</ul></details>`:'')+(d.ahead?`<details class="stg ahead"><summary>🗓️ הכנה מראש</summary><p>${esc(d.ahead)}</p></details>`:'')}return d.steps.length?`<ol>${d.steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ol>`:'<div class="muted">לא הוזנו שלבי הכנה – הכן לפי המתכון המוכר לך: הכנת מרכיבים, בישול/אפייה, טעימה ותיבול, הגשה.</div>'}
 
 let LOC=null;
@@ -330,7 +347,7 @@ const toM=t=>{const[h,m]=t.split(':');return +h*60+ +m},toT=m=>{m=(m+1440)%1440;
 function build(m){const p=P(m),shop={};m.dishes.forEach(d=>eff(d).ing.forEach(x=>{const k=x.n+'|'+x.u;shop[k]=shop[k]||{...x,q:0};shop[k].q+=x.q*dp(d,p)}));
  const T=toM(m.time),tl=[{t:T-150,s:'🛒 קניות + איסוף פריטים מוכנים'}];[...m.dishes].sort((a,b)=>b.min-a.min).forEach(d=>tl.push({t:T-d.min-15,s:`${d.e} להתחיל להכין: ${d.n} (${d.min} דק׳)`}));tl.push({t:T-10,s:'🍽️ עריכת שולחן וחימום מוכנים'},{t:T,s:'🎉 ארוחה!'});tl.sort((a,b)=>a.t-b.t);
  return `<div class="card"><h2>📋 תוכנית ארוחה – ${esc(m.cuisine)}</h2><div class="muted">${m.adults} מבוגרים, ${m.kids} ילדים = ${fmt(p)} מנות (ילד = חצי מנה) · ${m.time}</div>${discH}</div>
- <div class="card shop"><h2>🛒 רשימת קניות</h2><h3>מצרכים</h3>${Object.values(shop).map(x=>`<label><input type="checkbox"> ${x.e} ${esc(x.n)}${x.q?` – ${fmt(x.q)} ${esc(x.u)}`:''}</label>`).join('')||'<div class="muted">אין</div>'}<h3>לקנות מוכן</h3>${m.ready.map(r=>`<label><input type="checkbox"> ${r.e} ${esc(r.n)}${r.qty?` (${esc(r.qty)})`:''} – ${esc(r.store)}${r.dist?` · ${r.dist} ק"מ`:''}${r.maps?` <a href="${r.maps}" target="_blank" rel="noopener">מפה</a>`:''}</label>`).join('')||'<div class="muted">אין</div>'}</div>
+ <div class="card shop"><h2>🛒 רשימת קניות</h2><h3>מצרכים</h3>${Object.values(shop).map(x=>`<label><input type="checkbox"> ${x.e} ${esc(x.n)}${x.q?` – ${esc(fmtQty(x.q,x.u))}`:''}</label>`).join('')||'<div class="muted">אין</div>'}<h3>לקנות מוכן</h3>${m.ready.map(r=>`<label><input type="checkbox"> ${r.e} ${esc(r.n)}${r.qty?` (${esc(r.qty)})`:''} – ${esc(r.store)}${r.dist?` · ${r.dist} ק"מ`:''}${r.maps?` <a href="${r.maps}" target="_blank" rel="noopener">מפה</a>`:''}</label>`).join('')||'<div class="muted">אין</div>'}</div>
  <div class="card"><h2>⏰ לוח זמנים</h2>${tl.map(x=>`<div class="tl"><b>${toT(x.t)}</b> – ${esc(x.s)}</div>`).join('')}</div>
  ${m.dishes.map(d=>`<div class="card"><h2>${d.e} ${esc(d.n)}</h2>${d.extra?`<div class="tag">➕ ${d.extra} מנות נוספות (סה״כ ${fmt(dp(d,p))})</div>`:''}${noteH(d)}<h3>מרכיבים</h3>${ingH(d,p)}<h3>אופן הכנה</h3>${stepsH(d)}${chatH(d)}</div>`).join('')}${discH}`;}
 window.confirmM=async()=>{if(!cur.dishes.length&&!cur.ready.length)return msg('הוסף לפחות מנה או פריט');busy('שומר...');try{cur.id=await API.add(cur)}catch(e){toast('שמירה נכשלה: '+e.message)}busy('');
@@ -375,7 +392,7 @@ async function callAI(action,payload){if(!online())throw new Error('offline');co
  if(error){let m=error.message;try{const j=await error.context.json();m=j.error||m}catch(_){}throw new Error(m)}if(data&&data.error)throw new Error(data.error);return data}
 const aiErr=e=>/rate_limit/.test(e.message)?'הגעת למכסת 50 פניות AI ליום':/offline/.test(e.message)?'AI לא זמין במצב הדגמה':'AI לא זמין כרגע';
 const slim=d=>{const{chat,...x}=d;return x};
-function diffIng(a,b){const A={};a.forEach(x=>A[x.n]=x);const out=[],hl=[];b.forEach(x=>{const o=A[x.n];if(!o){out.push(`נוסף: ${x.n} (${fmt(x.q)} ${x.u} למנה)`);hl.push(x.n)}else if(Math.abs(o.q-x.q)>1e-9||o.u!=x.u){out.push(`${x.n}: ${fmt(o.q)} ${o.u} ← ${fmt(x.q)} ${x.u} למנה`);hl.push(x.n)}delete A[x.n]});Object.keys(A).forEach(n=>out.push('הוסר: '+n));return{out,hl}}
+function diffIng(a,b){const A={};a.forEach(x=>A[x.n]=x);const out=[],hl=[];b.forEach(x=>{const o=A[x.n];if(!o){out.push(`נוסף: ${x.n} (${fmtQty(x.q,x.u)} למנה)`);hl.push(x.n)}else if(Math.abs(o.q-x.q)>1e-9||o.u!=x.u){out.push(`${x.n}: ${fmtQty(o.q,o.u)} ← ${fmtQty(x.q,x.u)} למנה`);hl.push(x.n)}delete A[x.n]});Object.keys(A).forEach(n=>out.push('הוסר: '+n));return{out,hl}}
 window.aiRefine=async i=>{const d=cur.dishes[i];if(!d.note)return msg('כתבו קודם מה לשנות (למשל: רוצה יותר חריף)');
  if(!online()){d.refine={ok:false,note:d.note};return rSugg()}
  busy('👨‍🍳 מעדכן את המתכון…');
@@ -415,7 +432,7 @@ const SUBS={'ביצים':'רסק תפוחים (¼ כוס לביצה) או זרע
 function localAnswer(d,q){const E=eff(d).ing,n=d.n,hit=E.find(x=>q.includes(x.n)||x.n.split(' ').some(w=>w.length>2&&q.includes(w)));
  if(/להחליף|תחליף|במקום|אין לי|אלרג|רגיש|טבעוני|צמחוני|גלוטן/.test(q)){const list=(hit?[hit]:E).map(x=>SUBS[x.n]?`${x.n} ← ${SUBS[x.n]}`:null).filter(Boolean);return list.length?'תחליפים אפשריים:\n'+list.join('\n'):(hit?`אין לי תחליף מוכן ל${hit.n}. אפשר לנסות מרכיב בעל מרקם/טעם דומה.`:'ציין איזה מרכיב תרצה להחליף.')}
  if(/זמן|כמה זמן|מתי|דקות|שעה/.test(q))return `זמן ההכנה המשוער של ${n}: כ-${d.min} דקות. בתוכנית מומלץ להתחיל כ-${d.min+15} דקות לפני הארוחה.`;
- if(/כמה|כמות|גרם|מנות/.test(q)){if(hit)return `${hit.n}: ${fmt(hit.q)} ${hit.u} למנה אחת.`;return 'כמויות למנה אחת:\n'+E.map(x=>`${x.n}: ${fmt(x.q)} ${x.u}`).join('\n')}
+ if(/כמה|כמות|גרם|מנות/.test(q)){if(hit)return `${hit.n}: ${fmtQty(hit.q,hit.u)} למנה אחת.`;return 'כמויות למנה אחת:\n'+E.map(x=>`${x.n}: ${fmtQty(x.q,x.u)}`).join('\n')}
  {const W=q.split(/[\s,?.!]+/).filter(w=>w.length>2&&!/איך|מה|כמה|אפשר|צריך|המנה|את|של/.test(w));const L=W.length?d.steps.filter(s=>W.some(w=>s.includes(w))):[];if(L.length&&L.length<6&&!/איך מכינים|שלבי/.test(q))return 'מצאתי בהוראות:\n'+L.join('\n')}
  if(/איך|שלב|הכנה|מכינים|להכין/.test(q)&&!/מוכן|יודעים|סימן|לחתוך|חיתוך|מעלות|תנור|טיפ|טעות|מראש/.test(q))return d.steps.length?'שלבי ההכנה:\n'+d.steps.map((s,i)=>`${i+1}. ${s}`).join('\n'):'לא הוזנו שלבי הכנה למנה זו.';
  if(/מרכיב|מה צריך|מה יש|רכיב/.test(q)||hit)return hit?`כן, ${n} כולל ${hit.n} (${fmt(hit.q)} ${hit.u} למנה).`:'המרכיבים: '+E.map(x=>x.n).join(', ');
@@ -465,7 +482,7 @@ async function makePdf(m){
  m.dishes.forEach(d=>{y=pdfBullet(doc,`${d.n} (${d.type}, כ-${d.min} דק׳)`+(d.extra?` +${d.extra} מנות`:''),y)});
  (m.ready||[]).forEach(r=>{y=pdfBullet(doc,`${r.n} – לקנות מוכן (${r.store||''}${r.dist?`, ${r.dist} ק״מ`:''})`,y)});
  y+=2;y=pdfHeading(doc,'רשימת קניות',y);
- shopList(m).forEach(x=>{y=pdfBullet(doc,`${x.n}${x.q?` – ${fmt(x.q)} ${x.u}`:''}`,y)});
+ shopList(m).forEach(x=>{y=pdfBullet(doc,`${x.n}${x.q?` – ${fmtQty(x.q,x.u)}`:''}`,y)});
  (m.ready||[]).forEach(r=>{y=pdfBullet(doc,`${r.n}${r.qty?` (${r.qty})`:''} – מוכן, ${r.store||''}`,y)});
  const T=toM(m.time),tl=[{t:T-150,s:'קניות + איסוף פריטים מוכנים'}];[...m.dishes].sort((a,b)=>b.min-a.min).forEach(d=>tl.push({t:T-d.min-15,s:`להתחיל להכין: ${d.n} (${d.min} דק׳)`}));tl.push({t:T-10,s:'עריכת שולחן וחימום מוכנים'},{t:T,s:'ארוחה!'});tl.sort((a,b)=>a.t-b.t);
  y+=2;y=pdfHeading(doc,'לוח זמנים',y);tl.forEach(x=>{y=pdfBullet(doc,`${toT(x.t)} – ${x.s}`,y)});
@@ -475,7 +492,7 @@ async function makePdf(m){
   y=pdfWrite(doc,d.n,R,y,{size:14,color:[154,52,18],lineH:7});
   y=pdfWrite(doc,`מרכיבים (ל-${fmt(dp(d,p))} מנות):`,R,y,{size:11,color:[232,93,4]});
   const G={};eff(d).ing.forEach(x=>(G[x.c||'מרכיבים']=G[x.c||'מרכיבים']||[]).push(x));
-  Object.entries(G).forEach(([g,L])=>{y=pdfWrite(doc,g,R,y,{size:10,color:[154,52,18]});L.forEach(x=>{y=pdfBullet(doc,`${x.n}${x.q?` – ${fmt(x.q*dp(d,p))} ${x.u}`:''}`,y,9)})});
+  Object.entries(G).forEach(([g,L])=>{y=pdfWrite(doc,g,R,y,{size:10,color:[154,52,18]});L.forEach(x=>{y=pdfBullet(doc,`${x.n}${x.q?` – ${fmtQty(x.q*dp(d,p),x.u)}`:''}`,y,9)})});
   y=pdfWrite(doc,'אופן הכנה:',R,y+1,{size:11,color:[232,93,4]});
   let step=1;if(d.stages){Object.entries(d.stages).forEach(([k,v])=>{y=pdfWrite(doc,k,R,y,{size:10,color:[154,52,18]});v.forEach(z=>{y=pdfBullet(doc,`${step}. ${z}`,y,9);step++})})}
   else (d.steps||[]).forEach(z=>{y=pdfBullet(doc,`${step}. ${z}`,y,9);step++});
@@ -492,7 +509,7 @@ window.sharePdf=async()=>{const b=$('#pdfBtn');b.disabled=true;b.textContent='מ
  if(navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title:'תוכנית ארוחה – מר שף',text:'תוכנית הארוחה שלי ממר שף'});return}catch(e){if(e.name==='AbortError')return}}
  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=file.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),15000);toast('ה-PDF הורד. אפשר לצרף אותו לוואטסאפ/מייל')}
  catch(e){msg('יצירת ה-PDF נכשלה: '+e.message)}finally{b.disabled=false;b.textContent='📄 PDF – הורדה / שיתוף'}};
-function waText(m){const L=['👨‍🍳 *מר שף – תוכנית ארוחה*',`${m.cuisine} · ${m.adults} מבוגרים, ${m.kids} ילדים · ${m.time}`,'','*תפריט:*',...m.dishes.map(d=>'• '+d.n),...(m.ready||[]).map(r=>'• '+r.n+' (מוכן)'),'','*רשימת קניות:*',...shopList(m).map(x=>`• ${x.n}${x.q?` – ${fmt(x.q)} ${x.u}`:''}`),...(m.ready||[]).map(r=>`• ${r.n} – מוכן`),'','⚠️ '+DISC];let t=L.join('\n');if(t.length>3500)t=t.slice(0,3500)+'\n…';return t}
+function waText(m){const L=['👨‍🍳 *מר שף – תוכנית ארוחה*',`${m.cuisine} · ${m.adults} מבוגרים, ${m.kids} ילדים · ${m.time}`,'','*תפריט:*',...m.dishes.map(d=>'• '+d.n),...(m.ready||[]).map(r=>'• '+r.n+' (מוכן)'),'','*רשימת קניות:*',...shopList(m).map(x=>`• ${x.n}${x.q?` – ${fmtQty(x.q,x.u)}`:''}`),...(m.ready||[]).map(r=>`• ${r.n} – מוכן`),'','⚠️ '+DISC];let t=L.join('\n');if(t.length>3500)t=t.slice(0,3500)+'\n…';return t}
 window.shareWa=()=>window.open('https://wa.me/?text='+encodeURIComponent(waText(cur)),'_blank');
 
 if(SB){SB.auth.getSession().then(({data})=>setSession(data.session));SB.auth.onAuthStateChange((ev,sess)=>{if(ev!='INITIAL_SESSION')setSession(sess)})}else setSession(null);
