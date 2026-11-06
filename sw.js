@@ -1,4 +1,4 @@
-const C='mr-chef-v11',F=['./','index.html','manifest.json','icon-192.png','icon-512.png','vendor/jspdf.umd.min.js','vendor/noto-hebrew-b64.js','vendor/Rubik-Hebrew.ttf'];
+const C='mr-chef-v12',F=['./','index.html','manifest.json','icon-192.png','icon-512.png','vendor/jspdf.umd.min.js','vendor/noto-hebrew-b64.js','vendor/Rubik-Hebrew.ttf'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(F)));self.skipWaiting()});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!=C).map(x=>caches.delete(x)))));self.clients.claim()});
 self.addEventListener('fetch',e=>{const u=new URL(e.request.url);if(e.request.method!='GET'||u.origin!=location.origin)return;

@@ -351,7 +351,7 @@ function build(m){const p=P(m),shop={};m.dishes.forEach(d=>eff(d).ing.forEach(x=
  <div class="card"><h2>⏰ לוח זמנים</h2>${tl.map(x=>`<div class="tl"><b>${toT(x.t)}</b> – ${esc(x.s)}</div>`).join('')}</div>
  ${m.dishes.map(d=>`<div class="card"><h2>${d.e} ${esc(d.n)}</h2>${d.extra?`<div class="tag">➕ ${d.extra} מנות נוספות (סה״כ ${fmt(dp(d,p))})</div>`:''}${noteH(d)}<h3>מרכיבים</h3>${ingH(d,p)}<h3>אופן הכנה</h3>${stepsH(d)}${chatH(d)}</div>`).join('')}${discH}`;}
 window.confirmM=async()=>{if(!cur.dishes.length&&!cur.ready.length)return msg('הוסף לפחות מנה או פריט');busy('שומר...');try{cur.id=await API.add(cur)}catch(e){toast('שמירה נכשלה: '+e.message)}busy('');
- $('#sugg').classList.add('hide');const f=$('#final');f.classList.remove('hide');f.innerHTML=build(cur)+`<div class="card"><h2>📤 שמירה ושיתוף</h2><button class="btn" id="pdfBtn" onclick="sharePdf()">📄 PDF – הורדה / שיתוף</button><button class="btn sec" onclick="shareWa()">💬 שלח בוואטסאפ (סיכום טקסט)</button></div><div class="card">✅ הארוחה נשמרה ב"הארוחות שלי" – שם אפשר לדרג ולהגיב.<button class="btn sec" onclick="show('saved')">לדירוג</button></div>`;scrollTo(0,0);};
+ $('#sugg').classList.add('hide');const f=$('#final');f.classList.remove('hide');f.innerHTML=build(cur)+`<div class="card"><h2>📤 שמירה ושיתוף</h2><button class="btn" id="pdfBtn" onclick="sharePdf()">📄 PDF – הורדה / שיתוף</button><button class="btn sec" onclick="shareWa()">💬 שלח בוואטסאפ (סיכום טקסט)</button><button class="btn sec" onclick="shareMail()">✉️ שלח הכל באימייל (טקסט)</button></div><div class="card">✅ הארוחה נשמרה ב"הארוחות שלי" – שם אפשר לדרג ולהגיב.<button class="btn sec" onclick="show('saved')">לדירוג</button></div>`;scrollTo(0,0);};
 const toRow=m=>({author_label:user.label,settings:{cuisine:m.cuisine,adults:m.adults,kids:m.kids,time:m.time,radius:m.radius,notes:m.notes||'',ai:!!m.ai},dishes:m.dishes,ready:m.ready});
 const fromRow=r=>({id:r.id,owner:r.user_id,author:r.author_label,...r.settings,dishes:r.dishes||[],ready:r.ready||[],rating:r.rating,comment:r.comment||'',created:r.created_at});
 const keep=a=>{a.forEach(m=>MEALS[m.id]=m);return a};
@@ -370,6 +370,7 @@ async function rSaved(){$('#v-saved').innerHTML='<div class="card muted">טוע�
  <div class="stars" id="st${m.id}">${[...Array(10)].map((_,i)=>`<button class="${m.rating==i+1?'on':''}" onclick="pickRate('${m.id}',${i+1})">${i+1}</button>`).join('')}</div>
  <textarea id="cm${m.id}" placeholder="הערה שתשותף עם הקהילה (לא חובה)"></textarea>
  <button class="btn" id="sb${m.id}" onclick="sendRate('${m.id}')">שלח דירוג והערה</button>
+ <button class="btn" onclick="cookAgain('${m.id}')">🔁 הכן שוב</button>
  <button class="sm" onclick="view('${m.id}')">📋 פרטים מלאים</button><button class="sm" onclick="del('${m.id}')">🗑️ מחק</button><div id="vw${m.id}"></div></div>`).join(''):'<div class="card muted">עוד לא שמרת ארוחות</div>';}
 const PEND={};
 window.pickRate=(id,r)=>{PEND[id]=r;document.querySelectorAll('#st'+id+' button').forEach((b,i)=>b.classList.toggle('on',i+1==r))};
@@ -381,7 +382,11 @@ window.del=async id=>{if(confirm('למחוק?')){try{await API.del(id)}catch(e){
 window.view=(id,where='vw')=>{const e=$('#'+where+id);e.innerHTML=e.innerHTML?'':build(MEALS[id])};
 async function rLib(){$('#v-lib').innerHTML='<div class="card muted">טוען...</div>';let l;try{l=await API.lib()}catch(e){return fail('#v-lib',e)}
  $('#v-lib').innerHTML=`<div class="card muted">מאגר פומבי: ארוחות של כל המשתמשים שקיבלו ציון מעל 8 או שלא דורגו</div>`+(l.map(m=>`<div class="card"><h2>${m.dishes.map(d=>d.e).join('')} ${esc(m.cuisine)} ${m.rating?'⭐'+m.rating:'<span class="tag">לא דורג</span>'}</h2><div class="muted">${m.owner==user.id?'שלי':'משתמש '+esc(m.author||'')} · ${m.dishes.map(d=>esc(d.n)).join(' · ')}</div><button class="sm" onclick="view('${m.id}','lv')">📋 פרטים</button><button class="sm" onclick="reuse('${m.id}')">🔁 תכנן אצלי</button><div id="lv${m.id}"></div></div>`).join('')||'<div class="card muted">ריק</div>');}
-window.reuse=id=>{const m=MEALS[id];cur={...JSON.parse(JSON.stringify(m)),id:null,rating:null,comment:''};show('plan');rSugg();};
+window.reuse=id=>{const m=MEALS[id];if(!m)return msg('הארוחה לא נמצאה');cur={...JSON.parse(JSON.stringify(m)),id:null,rating:null,comment:'',created:undefined};show('plan');rSugg();toast('נטענה להצעה – אפשר לערוך, לדייק ולשתף');};
+window.cookAgain=id=>{const m=MEALS[id];if(!m)return msg('הארוחה לא נמצאה');
+ // Clone into planning flow without mutating the saved copy; confirm will save a new meal
+ cur={...JSON.parse(JSON.stringify(m)),id:null,rating:null,comment:'',created:undefined,owner:undefined,author:undefined};
+ show('plan');rSugg();toast('הארוחה נטענה לתכנון – ערכו, דייקו ושתפו כמו בהצעה חדשה');};
 async function rComm(){$('#v-comm').innerHTML='<div class="card muted">טוען...</div>';let real;try{real=await API.feed()}catch(e){return fail('#v-comm',e)}
  const seed=real.length?[]:[{u:'דנה (דוגמה)',c:'איטלקי',r:9,t:'הריזוטו היה להיט אצל הילדים!'},{u:'יוסי (דוגמה)',c:'ים תיכוני',r:10,t:'לוח הזמנים עזר לי לא להילחץ'}];
  $('#v-comm').innerHTML=`<div class="card muted">דירוגים והערות של כל המשתמשים${online()?'':' (מצב הדגמה: רק במכשיר זה)'}</div>`+[...real,...seed].map(x=>`<div class="card"><b>${esc(x.u||'משתמש')}</b> · ${esc(x.c)} ${x.r?'⭐'+x.r+'/10':''}<div>${esc(x.t)}</div></div>`).join('');}
@@ -458,17 +463,30 @@ window.sendFb=async()=>{const row={stars:fbStars||null,helped:$('#fbHelped').val
 // ===== PDF ושיתוף (jsPDF + Noto Sans Hebrew מוטמע — ללא html2canvas) =====
 function shopList(m){const p=P(m),shop={};m.dishes.forEach(d=>eff(d).ing.forEach(x=>{const k=x.n+'|'+x.u;shop[k]=shop[k]||{...x,q:0};shop[k].q+=x.q*dp(d,p)}));return Object.values(shop)}
 function rtlStr(s){s=String(s??'');
- const toks=s.match(/[\u0590-\u05FF]+|[0-9]+(?:[.:\/-][0-9]+)*|[A-Za-z]+|\s+|./g)||[s];
- const out=[];for(const t of toks){if(/^[0-9]/.test(t))out.push('\u200E'+t);else if(/[\u0590-\u05FF]/.test(t))out.push([...t].reverse().join(''));else out.push(t)}
+ // VISUAL order for LTR jsPDF (pair with isInputVisual:true). Hebrew letters reversed; numbers/times/URLs kept LTR as atomic tokens; token list reversed for RTL line.
+ // Parentheses swapped so the glyph opening a Hebrew phrase on the visual right looks correct to Hebrew readers.
+ const toks=s.match(/https?:\/\/[^\s]+|www\.[^\s]+|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}|\d{1,2}:\d{2}(?::\d{2})?|\d{1,4}[./\-]\d{1,2}[./\-]\d{1,4}|\d+(?:[.,]\d+)?|[A-Za-z]+(?:[A-Za-z0-9._\-\/]*)|[\u0590-\u05FF]+|\s+|./g)||[s];
+ const out=[];
+ for(const t of toks){
+  if(/^https?:\/\//.test(t)||/^www\./.test(t)||t.includes('@')||/^[A-Za-z]/.test(t)){out.push('\u200E'+t);continue}
+  if(/^\d/.test(t)){out.push('\u200E'+t);continue}
+  if(/[\u0590-\u05FF]/.test(t)){out.push([...t].reverse().join(''));continue}
+  if(t==='('){out.push(')');continue}
+  if(t===')'){out.push('(');continue}
+  out.push(t);
+ }
  return out.reverse().join('')}
 function getJsPdf(){const J=window.jspdf&&(window.jspdf.jsPDF||window.jspdf);if(!J)throw new Error('ספריית PDF לא נטענה (רעננו את הדף)');return J}
 function ensureHebFont(doc){if(doc.__heb)return;const b64=window.MR_CHEF_HEBREW_FONT;if(!b64)throw new Error('גופן עברית חסר');doc.addFileToVFS('Rubik-Hebrew.ttf',b64);doc.addFont('Rubik-Hebrew.ttf','NotoHeb','normal');doc.__heb=true}
 function pdfWrite(doc,text,xRight,y,opts={}){ensureHebFont(doc);const size=opts.size||11,maxW=opts.maxW||(doc.internal.pageSize.getWidth()-24),lineH=opts.lineH||(size*0.45+2);
  doc.setFont('NotoHeb','normal');doc.setFontSize(size);if(opts.color)doc.setTextColor(...opts.color);else doc.setTextColor(30,30,30);
+ if(typeof doc.setR2L==='function')doc.setR2L(false);
+ // Wrap on logical words, then convert each finished line to visual order once
  const words=String(text).split(/\s+/).filter(Boolean);const lines=[];let cur='';
  const widthOf=t=>doc.getTextWidth(rtlStr(t));
  for(const w of words){const t=cur?cur+' '+w:w;if(widthOf(t)>maxW&&cur){lines.push(cur);cur=w}else cur=t}if(cur)lines.push(cur);if(!lines.length)lines.push('');
- for(const line of lines){if(y>doc.internal.pageSize.getHeight()-14){doc.addPage();y=16}doc.text(rtlStr(line),xRight,y,{align:'right',baseline:'top'});y+=lineH}
+ const drawOpt={align:'right',baseline:'top',isInputVisual:true,isOutputRtl:false,isInputRtl:false};
+ for(const line of lines){if(y>doc.internal.pageSize.getHeight()-14){doc.addPage();y=16}doc.text(rtlStr(line),xRight,y,drawOpt);y+=lineH}
  return y}
 function pdfHeading(doc,text,y,size=16){const W=doc.internal.pageSize.getWidth();y=pdfWrite(doc,text,W-12,y,{size,color:[232,93,4],lineH:size*0.5+3});doc.setDrawColor(243,211,184);doc.setLineWidth(0.4);doc.line(12,y-1,W-12,y-1);return y+3}
 function pdfBullet(doc,text,y,size=10){return pdfWrite(doc,'• '+text,doc.internal.pageSize.getWidth()-12,y,{size,lineH:size*0.45+2.2})}
@@ -510,7 +528,24 @@ window.sharePdf=async()=>{const b=$('#pdfBtn');b.disabled=true;b.textContent='מ
  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=file.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),15000);toast('ה-PDF הורד. אפשר לצרף אותו לוואטסאפ/מייל')}
  catch(e){msg('יצירת ה-PDF נכשלה: '+e.message)}finally{b.disabled=false;b.textContent='📄 PDF – הורדה / שיתוף'}};
 function waText(m){const L=['👨‍🍳 *מר שף – תוכנית ארוחה*',`${m.cuisine} · ${m.adults} מבוגרים, ${m.kids} ילדים · ${m.time}`,'','*תפריט:*',...m.dishes.map(d=>'• '+d.n),...(m.ready||[]).map(r=>'• '+r.n+' (מוכן)'),'','*רשימת קניות:*',...shopList(m).map(x=>`• ${x.n}${x.q?` – ${fmtQty(x.q,x.u)}`:''}`),...(m.ready||[]).map(r=>`• ${r.n} – מוכן`),'','⚠️ '+DISC];let t=L.join('\n');if(t.length>3500)t=t.slice(0,3500)+'\n…';return t}
+function fullMealText(m){const p=P(m),L=['מר שף – תוכנית ארוחה',`${m.cuisine} · ${m.adults} מבוגרים, ${m.kids} ילדים · שעת ארוחה ${m.time}`,'',DISC,'','תפריט:',...m.dishes.map(d=>`• ${d.n} (${d.type}, כ-${d.min} דק׳)`+(d.extra?` +${d.extra} מנות`:'')),...(m.ready||[]).map(r=>`• ${r.n} – לקנות מוכן (${r.store||''})`),'','רשימת קניות:',...shopList(m).map(x=>`• ${x.n}${x.q?` – ${fmtQty(x.q,x.u)}`:''}`),...(m.ready||[]).map(r=>`• ${r.n}${r.qty?` (${r.qty})`:''} – מוכן`),''];
+ const T=toM(m.time),tl=[{t:T-150,s:'קניות + איסוף פריטים מוכנים'}];[...m.dishes].sort((a,b)=>b.min-a.min).forEach(d=>tl.push({t:T-d.min-15,s:`להתחיל להכין: ${d.n} (${d.min} דק׳)`}));tl.push({t:T-10,s:'עריכת שולחן וחימום מוכנים'},{t:T,s:'ארוחה!'});tl.sort((a,b)=>a.t-b.t);
+ L.push('לוח זמנים:',...tl.map(x=>`• ${toT(x.t)} – ${x.s}`),'');
+ for(const d of m.dishes){L.push(`=== ${d.n} ===`,`מרכיבים (ל-${fmt(dp(d,p))} מנות):`);
+  const G={};eff(d).ing.forEach(x=>(G[x.c||'מרכיבים']=G[x.c||'מרכיבים']||[]).push(x));
+  Object.entries(G).forEach(([g,arr])=>{L.push(g+':');arr.forEach(x=>L.push(`  • ${x.n}${x.q?` – ${fmtQty(x.q*dp(d,p),x.u)}`:''}`))});
+  L.push('אופן הכנה:');let step=1;if(d.stages){Object.entries(d.stages).forEach(([k,v])=>{L.push(k+':');v.forEach(z=>{L.push(`  ${step}. ${z}`);step++})})}
+  else (d.steps||[]).forEach(z=>{L.push(`  ${step}. ${z}`);step++});
+  if(d.tips&&d.tips.length){L.push('טיפים:');d.tips.forEach(t=>L.push('  • '+t))}
+  if(d.ahead)L.push('הכנה מראש: '+d.ahead);L.push('')}
+ L.push('נוצר באפליקציית מר שף · https://geelgayo-ops.github.io/mr-chef');return L.join('\n')}
 window.shareWa=()=>window.open('https://wa.me/?text='+encodeURIComponent(waText(cur)),'_blank');
+window.shareMail=()=>{if(!cur)return msg('אין ארוחה לשתף');const sub=`תוכנית ארוחה – מר שף (${cur.cuisine||''})`.trim();
+ const body=fullMealText(cur);const url='mailto:?subject='+encodeURIComponent(sub)+'&body='+encodeURIComponent(body);
+ if(url.length>1800){ // many clients truncate long mailto — fall back to share/clipboard
+  if(navigator.share){navigator.share({title:sub,text:body}).catch(()=>{});return}
+  navigator.clipboard.writeText(body).then(()=>toast('הטקסט המלא הועתק – הדביקו במייל')).catch(()=>msg('הטקסט ארוך מדי למייל אוטומטי; העתיקו ידנית מהסיכום'));return}
+ location.href=url};
 
 if(SB){SB.auth.getSession().then(({data})=>setSession(data.session));SB.auth.onAuthStateChange((ev,sess)=>{if(ev!='INITIAL_SESSION')setSession(sess)})}else setSession(null);
 if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
