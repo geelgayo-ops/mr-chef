@@ -442,7 +442,7 @@ function loadJs(src){return new Promise((ok,no)=>{if(window.html2pdf)return ok()
 function pdfHtml(m){const p=P(m),date=new Date().toLocaleDateString('he-IL');const T=toM(m.time),tl=[{t:T-150,s:'🛒 קניות + איסוף פריטים מוכנים'}];[...m.dishes].sort((a,b)=>b.min-a.min).forEach(d=>tl.push({t:T-d.min-15,s:`להתחיל להכין: ${d.n} (${d.min} דק׳)`}));tl.push({t:T-10,s:'עריכת שולחן וחימום מוכנים'},{t:T,s:'ארוחה!'});tl.sort((a,b)=>a.t-b.t);
  const ing=d=>{const G={};eff(d).ing.forEach(x=>(G[x.c||'מרכיבים']=G[x.c||'מרכיבים']||[]).push(x));return Object.entries(G).map(([g,L])=>`<div class="pg">${esc(g)}</div><ul>${L.map(x=>`<li>${esc(x.n)}${x.q?` – ${fmt(x.q*dp(d,p))} ${esc(x.u)}`:''}</li>`).join('')}</ul>`).join('')};
  const steps=d=>d.stages?Object.entries(d.stages).map(([k,v])=>`<div class="pg">${esc(k)}</div><ol>${v.map(z=>`<li>${esc(z)}</li>`).join('')}</ol>`).join('')+(d.tips&&d.tips.length?`<div class="pg">טיפים</div><ul>${d.tips.map(t=>`<li>${esc(t)}</li>`).join('')}</ul>`:'')+(d.ahead?`<div class="pg">הכנה מראש</div><p>${esc(d.ahead)}</p>`:''):`<ol>${(d.steps||[]).map(z=>`<li>${esc(z)}</li>`).join('')}</ol>`;
- return `<div class="pdf" dir="rtl"><style>.pdf{font-family:Rubik,Arial,sans-serif;color:#222;width:720px;padding:24px;background:#fff;font-size:13px;line-height:1.55}.pdf h1{color:#e85d04;margin:0;font-size:26px}.pdf h2{color:#e85d04;border-bottom:2px solid #f3d3b8;padding-bottom:3px;margin:18px 0 6px;font-size:18px}.pdf h3{margin:12px 0 4px;font-size:16px}.pdf .pg{font-weight:700;color:#9a3412;margin-top:6px}.pdf ul,.pdf ol{margin:2px 0;padding-inline-start:22px}.pdf .disc{background:#fff3cd;border:1px solid #f0ad4e;border-radius:8px;padding:8px;margin:10px 0;font-weight:600}.pdf .dish{page-break-inside:auto;border-top:1px dashed #ddd;padding-top:6px}.pdf .li{display:flex;gap:6px;page-break-inside:avoid;margin:1px 0}.pdf .mk{flex:none;min-width:16px;color:#9a3412}.pdf .tx{flex:1}.pdf .w{display:inline-block}</style>
+ return `<div class="pdf" dir="rtl"><style>.pdf{font-family:Arial,"Noto Sans Hebrew","Segoe UI",Tahoma,sans-serif;color:#111!important;width:720px;padding:24px;background:#fff!important;font-size:13px;line-height:1.55;-webkit-print-color-adjust:exact;print-color-adjust:exact}.pdf h1{color:#e85d04;margin:0;font-size:26px}.pdf h2{color:#e85d04;border-bottom:2px solid #f3d3b8;padding-bottom:3px;margin:18px 0 6px;font-size:18px}.pdf h3{margin:12px 0 4px;font-size:16px}.pdf .pg{font-weight:700;color:#9a3412;margin-top:6px}.pdf ul,.pdf ol{margin:2px 0;padding-inline-start:22px}.pdf .disc{background:#fff3cd;border:1px solid #f0ad4e;border-radius:8px;padding:8px;margin:10px 0;font-weight:600}.pdf .dish{page-break-inside:auto;border-top:1px dashed #ddd;padding-top:6px}.pdf .li{display:flex;gap:6px;page-break-inside:avoid;margin:1px 0}.pdf .mk{flex:none;min-width:16px;color:#9a3412}.pdf .tx{flex:1}.pdf .w{display:inline-block}</style>
  <h1>👨‍🍳 מר שף – תוכנית ארוחה</h1><div>${esc(m.cuisine)} · ${m.adults} מבוגרים, ${m.kids} ילדים · שעת ארוחה ${m.time} · הופק ב-${date}</div><div class="disc">⚠️ ${DISC}</div>
  <h2>תפריט</h2><ul>${m.dishes.map(d=>`<li><b>${esc(d.n)}</b> (${esc(d.type)}, ~${d.min} דק׳)${d.extra?` +${d.extra} מנות`:''}</li>`).join('')}${m.ready.map(r=>`<li>${esc(r.n)} – לקנות מוכן (${esc(r.store)})</li>`).join('')}</ul>
  <h2>רשימת קניות</h2><ul>${shopList(m).map(x=>`<li>☐ ${esc(x.n)}${x.q?` – ${fmt(x.q)} ${esc(x.u)}`:''}</li>`).join('')}${m.ready.map(r=>`<li>☐ ${esc(r.n)}${r.qty?` (${esc(r.qty)})`:''} – מוכן, ${esc(r.store)}</li>`).join('')}</ul>
@@ -450,15 +450,33 @@ function pdfHtml(m){const p=P(m),date=new Date().toLocaleDateString('he-IL');con
  <h2>מתכונים</h2>${m.dishes.map(d=>`<div class="dish"><h3>${esc(d.n)}</h3><b>מרכיבים (ל-${fmt(dp(d,p))} מנות):</b>${ing(d)}<b>אופן הכנה:</b>${steps(d)}</div>`).join('')}
  <div class="disc">⚠️ ${DISC}</div><div style="text-align:center;color:#888">נוצר באפליקציית מר שף · geelgayo-ops.github.io/mr-chef</div></div>`}
 async function makePdf(m){await loadJs('https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.2/dist/html2pdf.bundle.min.js');
- const box=document.createElement('div');box.style.cssText='position:fixed;left:-10000px;top:0';box.innerHTML=pdfHtml(m);document.body.appendChild(box);
- // html2canvas mishandles RTL word spacing and list markers: replace lists with plain rows and wrap each word in its own inline-block
- box.querySelectorAll('ul,ol').forEach(l=>{let n=0;const isO=l.tagName=='OL';[...l.children].forEach(li=>{n++;const d=document.createElement('div');d.className='li';d.innerHTML=`<span class="mk">${isO?n+'.':'•'}</span><span class="tx">${li.innerHTML}</span>`;l.parentNode.insertBefore(d,l)});l.remove()});
- const tw=document.createTreeWalker(box.firstElementChild,NodeFilter.SHOW_TEXT);const T=[];while(tw.nextNode())if(tw.currentNode.parentNode.tagName!='STYLE'&&tw.currentNode.nodeValue.trim())T.push(tw.currentNode);
- T.forEach(t=>{const f=document.createDocumentFragment();t.nodeValue.split(/(\s+)/).forEach(w=>{if(!w)return;if(/^\s+$/.test(w)){f.appendChild(document.createTextNode(' '));return}const sp=document.createElement('span');sp.className='w';sp.textContent=w;f.appendChild(sp)});t.replaceWith(f)});
- try{await (document.fonts&&document.fonts.ready);return await html2pdf().set({margin:[10,8,12,8],filename:'mr-chef.pdf',image:{type:'jpeg',quality:0.92},html2canvas:{scale:2,useCORS:true,backgroundColor:'#fff'},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},pagebreak:{mode:['css','legacy'],avoid:['.li','h2','h3','.pg']}}).from(box.firstElementChild).outputPdf('blob')}finally{box.remove()}}
+ // Bug: left:-10000px made html2canvas paint a blank white page on many mobile browsers.
+ // Keep the node in-viewport (z-index behind UI) so it is actually painted.
+ const host=document.createElement('div');
+ host.id='pdf-render-host';host.setAttribute('aria-hidden','true');
+ // Visible (but under a light veil) so Safari/Chrome actually paint the node. z-index:-1 / off-left often yields blank PDFs.
+ host.style.cssText='position:fixed;left:0;top:0;right:0;bottom:0;z-index:9990;overflow:auto;background:#fff;';
+ const veil=document.createElement('div');veil.style.cssText='position:sticky;top:0;z-index:2;background:#fff;padding:14px;text-align:center;font-weight:700;color:#e85d04;border-bottom:1px solid #f3d3b8';veil.textContent='מכין PDF…';
+ host.innerHTML=pdfHtml(m);host.insertBefore(veil,host.firstChild);document.body.appendChild(host);
+ const root=host.querySelector('.pdf');
+ host.querySelectorAll('ul,ol').forEach(l=>{let n=0;const isO=l.tagName=='OL';[...l.children].forEach(li=>{n++;const d=document.createElement('div');d.className='li';d.innerHTML='<span class="mk">'+(isO?n+'.':'•')+'</span><span class="tx">'+li.innerHTML+'</span>';l.parentNode.insertBefore(d,l)});l.remove()});
+ const tw=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);const T=[];while(tw.nextNode()){const p=tw.currentNode.parentNode;if(p&&p.tagName!='STYLE'&&tw.currentNode.nodeValue&&tw.currentNode.nodeValue.trim())T.push(tw.currentNode)}
+ T.forEach(t=>{const f=document.createDocumentFragment();String(t.nodeValue).split(/(\s+)/).forEach(w=>{if(!w)return;if(/^\s+$/.test(w)){f.appendChild(document.createTextNode(' '));return}const sp=document.createElement('span');sp.className='w';sp.textContent=w;f.appendChild(sp)});t.replaceWith(f)});
+ try{
+  try{if(document.fonts&&document.fonts.ready)await Promise.race([document.fonts.ready,new Promise(r=>setTimeout(r,1500))])}catch(_){}
+  await new Promise(r=>setTimeout(r,100));
+  const rect=root.getBoundingClientRect(),h=Math.max(root.scrollHeight,Math.ceil(rect.height),400),w=Math.max(root.scrollWidth,Math.ceil(rect.width),720);
+  if(h<80)throw new Error('תוכן ה-PDF לא נטען');
+  const worker=html2pdf().set({margin:[10,8,12,8],filename:'mr-chef.pdf',image:{type:'jpeg',quality:0.95},
+   html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff',scrollX:0,scrollY:-window.scrollY,windowWidth:w+20,windowHeight:h+20},
+   jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},pagebreak:{mode:['css'],avoid:['.li','h2','h3','.pg','.disc']}}).from(root);
+  const blob=await worker.outputPdf('blob');
+  if(!blob||blob.size<3000)throw new Error('קובץ ה-PDF יצא ריק ('+(blob?blob.size:0)+' בתים)');
+  return blob;
+ }finally{host.remove()}}
 const pdfName=m=>`mr-chef-${(m.cuisine||'meal').replace(/[^\p{L}\p{N}]+/gu,'-').slice(0,30)}-${new Date().toISOString().slice(0,10)}.pdf`;
 window.sharePdf=async()=>{const b=$('#pdfBtn');b.disabled=true;b.textContent='מכין PDF...';try{const blob=await makePdf(cur),file=new File([blob],pdfName(cur),{type:'application/pdf'});
- if(navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title:'תוכנית ארוחה – מר שף',text:'תוכנית הארוחה שלי ממר שף'});return}catch(e){if(e.name=='AbortError')return}}
+ if(navigator.canShare&&navigator.canShare({files:[file]})&&file.size>3000){try{await navigator.share({files:[file],title:'תוכנית ארוחה – מר שף',text:'תוכנית הארוחה שלי ממר שף'});return}catch(e){if(e.name=='AbortError')return}}
  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=file.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),10000);toast('ה-PDF הורד. אפשר לצרף אותו לוואטסאפ/מייל')}
  catch(e){msg('יצירת ה-PDF נכשלה: '+e.message)}finally{b.disabled=false;b.textContent='📄 PDF – הורדה / שיתוף'}};
 function waText(m){const L=['👨‍🍳 *מר שף – תוכנית ארוחה*',`${m.cuisine} · ${m.adults} מבוגרים, ${m.kids} ילדים · ${m.time}`,'','*תפריט:*',...m.dishes.map(d=>'• '+d.n),...m.ready.map(r=>'• '+r.n+' (מוכן)'),'','*רשימת קניות:*',...shopList(m).map(x=>`• ${x.n}${x.q?` – ${fmt(x.q)} ${x.u}`:''}`),...m.ready.map(r=>`• ${r.n} – מוכן`),'','⚠️ '+DISC];let t=L.join('\n');if(t.length>3500)t=t.slice(0,3500)+'\n…';return t}
