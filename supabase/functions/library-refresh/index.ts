@@ -4,7 +4,7 @@
 // NOTE: SYS/DISC/schemas/normDish/libKey below are copied from chef-ai/index.ts – keep in sync.
 import { createClient } from "npm:@supabase/supabase-js@2";
 const MODEL=Deno.env.get("GEMINI_MODEL")||"gemini-3.1-flash-lite";
-const PLAN_N=24, MAX_ITEMS=30, BATCH=4;
+const PLAN_N=40, MAX_ITEMS=45, BATCH=4; // 30 coverage items (one per chip) + 10 weighted extras; ~10 steps of 4
 const j=(b:unknown,st=200)=>new Response(JSON.stringify(b),{status:st,headers:{"Content-Type":"application/json"}});
 const DISC="המתכונים הם המלצה בלבד, אינם מתייחסים לרגישויות ואלרגיות שונות, והאחריות על ההכנה והאכילה היא של המשתמש בלבד.";
 const ING={type:"OBJECT",properties:{n:{type:"STRING"},e:{type:"STRING"},q:{type:"NUMBER"},u:{type:"STRING"},c:{type:"STRING"}},required:["n","e","q","u","c"]};
@@ -83,17 +83,41 @@ const SLOT_POOL:[string,string,number][]=[["ערב","19:30",55],["צהריים",
 const POPULAR=["ביתי ישראלי","ים תיכוני","ארוחת שישי/חג","איטלקי","גריל/מנגל","אסייתי","בריא/קליל","ילדים אוהבים"];
 const STYLE_CHIPS=['ביתי ישראלי','ארוחת שישי/חג','ים תיכוני','מרוקאי','עיראקי/כורדי','תורכי/בלקני','תימני','איטלקי','צרפתי','ספרדי','אסייתי','סיני','יפני','תאילנדי','הודי','מקסיקני','אמריקאי/BBQ','גריל/מנגל','בריא/קליל','ילדים אוהבים','בראנץ׳','פיקניק','חגיגי/אירוח'];
 function wpick<T>(arr:T[],w:(x:T)=>number):T{const tot=arr.reduce((a,x)=>a+w(x),0);let r=Math.random()*tot;for(const x of arr){r-=w(x);if(r<=0)return x}return arr[arr.length-1]}
-function plan(trendList:any[]){
+const DIET_CHIPS=["כשר","צמחוני","טבעוני","ללא גלוטן","חלבי","בשרי","מהיר עד 30 דק׳"];
+const ALL_CHIPS=[...STYLE_CHIPS,...DIET_CHIPS]; // all 30 chips in the app
+const MORNING_OK=['ביתי ישראלי','בריא/קליל','חלבי','צמחוני','טבעוני','כשר','ללא גלוטן','מהיר עד 30 דק׳','ים תיכוני'];
+function slotFor(style:string):[string,string,number]{
+ if(style==="בראנץ׳")return["בוקר","10:00",1];
+ if(style==="ארוחת שישי/חג"||style==="חגיגי/אירוח")return["ערב","19:30",1];
+ if(style==="פיקניק")return["צהריים","13:00",1];
+ const pool=MORNING_OK.includes(style)?SLOT_POOL:SLOT_POOL.filter(x=>x[0]!=="בוקר"); // no "Chinese stir-fry for breakfast"
+ return wpick(pool,x=>x[2]);
+}
+// Build the request exactly like the client does for these chips: cuisine = chips joined by " · " (single chip => chip name).
+function mkReq(style:string,diet:string,kids:boolean,slot:[string,string,number]){
+ const styles=[style,diet].filter(Boolean);
+ return {styles,free_text:"",cuisine:styles.join(" · "),adults:kids?2:4,children:kids?2:0,time:slot[1],notes:""};
+}
+async function plan(admin:any,trendList:any[]){
+ const {data:lib}=await admin.from("recipe_library").select("style_key,diet_key").limit(5000);
+ const have=new Map<string,number>(); for(const r of lib||[]){const k=r.style_key+"|"+r.diet_key;have.set(k,(have.get(k)||0)+1)}
+ const cnt=(req:any)=>{const k=libKey(req,req.styles);return have.get(k.style_key+"|"+k.diet_key)||0};
  const out:any[]=[],seen=new Set<string>();
- for(let t=0;out.length<PLAN_N&&t<PLAN_N*10;t++){
+ const add=(req:any,coverage:string|null)=>{const k=libKey(req,req.styles).req_key;if(seen.has(k))return false;seen.add(k);
+  const tr=trendList[out.length%Math.max(1,trendList.length)];
+  out.push({req,coverage,trend:tr?`${s(tr.name)} – ${s(tr.desc)}`.slice(0,300):null});return true};
+ // 1) coverage: one meal per chip (chip alone = its own key, the most common single-chip request); missing chips first
+ const cov=ALL_CHIPS.map(ch=>{const isDiet=DIET_CHIPS.includes(ch);const kids=ch==="ילדים אוהבים"||Math.random()<0.4;
+  return mkReq(isDiet?"":ch,isDiet?ch:"",kids,slotFor(ch))}).map(r=>({r,c:cnt(r)})).sort((a,b)=>a.c-b.c);
+ for(const {r} of cov) for(let t=0;t<6&&!add(r,r.styles[0]);t++){r.time=slotFor(r.styles[0])[1]}
+ // 2) fill: weighted variety (style + optional diet), preferring style/diet combos absent from the library
+ for(let t=0;out.length<PLAN_N&&t<PLAN_N*20;t++){
   const style=wpick(STYLE_CHIPS,x=>POPULAR.includes(x)?3:1);
   const diet=wpick(DIET_POOL,x=>x[1])[0];
-  let slot=wpick(SLOT_POOL,x=>x[2]); if(style==="בראנץ׳")slot=["בוקר","10:00",1];
   const kids=style==="ילדים אוהבים"||Math.random()<0.5;
-  const req={styles:diet?[style,diet]:[style],free_text:"",cuisine:style,adults:kids?2:4,children:kids?2:0,time:slot[1],notes:""};
-  const k=libKey(req,req.styles).req_key; if(seen.has(k))continue; seen.add(k);
-  const tr=trendList[out.length%Math.max(1,trendList.length)];
-  out.push({req,trend:tr?`${s(tr.name)} – ${s(tr.desc)}`.slice(0,300):null});
+  const req=mkReq(style,diet,kids,slotFor(style));
+  if(cnt(req)>0&&Math.random()<0.6)continue; // prefer combos the library lacks
+  add(req,null);
  }
  return out.slice(0,MAX_ITEMS);
 }
@@ -104,6 +128,7 @@ async function makeItem(admin:any,run:any,it:any){
  const avoid=[...new Set((prev||[]).flatMap((r:any)=>(r.dishes||[]).map((d:any)=>d.n)))].slice(0,30) as string[];
  const p=`תכנן ארוחה. סגנונות/אילוצים שנבחרו: ${st.join(", ")}. תיאור חופשי: "${b.cuisine}", ${b.adults} מבוגרים ו-${b.children} ילדים, שעת ארוחה ${b.time}. הערות: אין.
 החזר 3-4 מנות להכנה (עיקרית + תוספות/סלט) עם מתכונים מלאים, ו-2-3 פריטים מומלצים לקנייה מוכנה (store = סוג חנות כללי, qty = כמות מומלצת לכל המשתתפים).
+זו ארוחת ${key.meal_slot==="בוקר"?"בוקר":key.meal_slot==="צהריים"?"צהריים":"ערב"} – התאם את המנות לסוג הארוחה ולסגנון שנבחר (מנות אותנטיות לסגנון).
 ${it.trend?`קבל השראה מטרנד קולינרי עכשווי: ${it.trend}. שלב אותו רק אם הוא מתאים לסגנון, לשעת הארוחה ולאילוצים (אחרת התעלם ממנו) – עדיף ארוחה עדכנית וחדשנית שעדיין מעשית להכנה ביתית.`:""}${+b.children>0?" יש ילדים בארוחה: בלי אלכוהול, בלי דג/בשר נא ובלי חריף בולט.":""}${avoid.length?` אל תחזור על המנות הבאות שכבר קיימות במאגר: ${avoid.join(", ")}.`:""}`;
  const r=await callGemini({systemInstruction:{parts:[{text:SYS}]},contents:[{role:"user",parts:[{text:p}]}],generationConfig:{responseMimeType:"application/json",responseSchema:{type:"OBJECT",properties:{dishes:{type:"ARRAY",items:DISH},ready:{type:"ARRAY",items:READY}},required:["dishes","ready"]},temperature:0.8,maxOutputTokens:16000}});
  const tin=r.usage.promptTokenCount||0, tout=(r.usage.candidatesTokenCount||0)+(r.usage.thoughtsTokenCount||0);
@@ -124,6 +149,12 @@ Deno.serve(async req=>{
   const body=await req.json().catch(()=>({}));
   const admin=createClient(Deno.env.get("SUPABASE_URL")!,Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   let {data:run}=await admin.from("library_refresh_runs").select("*").eq("status","running").order("id",{ascending:false}).limit(1).maybeSingle();
+  if(body.dry_run){
+   const items=await plan(admin,[]);
+   const covered=new Set(items.map((x:any)=>x.coverage).filter(Boolean));
+   return j({dry_run:true,planned:items.length,steps:Math.ceil(items.length/BATCH),missing_chips:ALL_CHIPS.filter(c=>!covered.has(c)),
+    items:items.map((x:any)=>({coverage:x.coverage,key:libKey(x.req,x.req.styles).req_key,adults:x.req.adults,children:x.req.children,time:x.req.time}))});
+  }
   if(body.start){
    const hr=+new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Jerusalem",hour:"2-digit",hourCycle:"h23"}).format(new Date());
    if(!body.force&&hr!==6) return j({skipped:"not 06:00 Asia/Jerusalem (DST guard)",hour:hr});
@@ -131,7 +162,7 @@ Deno.serve(async req=>{
    const {data:recent}=await admin.from("library_refresh_runs").select("id").gte("started_at",new Date(Date.now()-20*3600e3).toISOString()).limit(1);
    if(!body.force&&recent&&recent.length) return j({skipped:"already ran in the last 20h"});
    const T=await trends();
-   const items=plan(T.list);
+   const items=await plan(admin,T.list);
    const {data:nr,error}=await admin.from("library_refresh_runs").insert({trigger:body.force?"manual":"cron",model:MODEL,grounded:T.grounded,grounding_error:T.err||null,trends:T.list,sources:T.sources,planned:items.length}).select("*").single();
    if(error) throw error; run=nr;
    await admin.from("library_refresh_items").insert(items.map(x=>({run_id:run.id,req:x.req,trend:x.trend,tokens_in:0,tokens_out:0})));
