@@ -322,7 +322,9 @@ function readyH(){return cur.ready.map((r,i)=>`<div class="dish"><div class="dh"
 window.refreshStores=async()=>{if(!cur)return;cur.storesPending=true;rSugg();const r=await enrichReady(cur.ready,cur.radius||5);if(!cur)return;cur.ready=r.items;cur.storesNote=r.msg;cur.storesReal=r.real;cur.storesPending=false;rSugg()};
 let GEN=0;
 function stillPlan(g){return g===GEN&&cur&&!cur.id&&$('#sugg')&&!$('#sugg').classList.contains('hide')}
-function planBanners(){let h='';if(cur.aiPending)h+='<div class="demo">👨‍🍳 מתכנן מחדש עם Gemini… אפשר כבר לעיין בהצעה</div>';if(cur.storesPending)h+='<div class="demo">📍 מחפש חנויות קרובות…</div>';return h}
+const SRC_L={library:'📚 מהמאגר המשותף',ai:'🤖 נוצר עכשיו עם Gemini'};
+function srcLabel(){if(cur.aiPending)return'';const t=SRC_L[cur.source]||(online()?'📦 מאגר מובנה':'📦 מאגר מובנה (לא מחובר)');return`<div style="margin-top:6px"><span class="tag">${t}</span>${cur.source=='library'&&cur.libRating?` <span class="muted">⭐${cur.libRating}/10 (${cur.libRatingN})</span>`:''}</div>`}
+function planBanners(){let h='';if(cur.needLogin)h+='<div class="demo">🔒 תכנון חכם עם Gemini זמין רק לאחר כניסה עם אימייל. כרגע מוצגת הצעה מהמאגר המובנה. <button class="sm" onclick="logout()">כניסה עם אימייל</button></div>';if(cur.aiPending)h+=`<div class="demo">${cur.freshPending?'✨ Gemini ממציא מנה חדשה… אפשר כבר לעיין בהצעה':'👨‍🍳 מתכנן עם Gemini… אפשר כבר לעיין בהצעה'}</div>`;if(cur.storesPending)h+='<div class="demo">📍 מחפש חנויות קרובות…</div>';return h}
 async function applyStores(g){if(!stillPlan(g))return;const en=await enrichReady(cur.ready,cur.radius||5);if(!stillPlan(g))return;const names=cur.ready.map(x=>x.n).join('\0'),got=en.items.map(x=>x.n).join('\0');
  if(names===got){cur.ready=en.items;cur.storesNote=en.msg;cur.storesReal=en.real}
  else{const en2=await enrichReady(cur.ready,cur.radius||5);if(!stillPlan(g))return;cur.ready=en2.items;cur.storesNote=en2.msg;cur.storesReal=en2.real}
@@ -330,22 +332,27 @@ async function applyStores(g){if(!stillPlan(g))return;const en=await enrichReady
 $('#gen').onclick=async()=>{const sel=selStyles(),st0=$('#style').value.trim();if(sel.length||st0)$('#cuisine').value=nearest(sel,st0);const c=$('#cuisine').value,a=+$('#adults').value||0,k=+$('#kids').value||0;if(a+k<1)return msg('הזן לפחות משתתף אחד');const r=+$('#radius').value||5,style=[...sel,st0].filter(Boolean).join(' · '),notes=$('#notes').value.trim();
  const d=DB[c].dishes,pick=[d.find(x=>x.type=='עיקרית'),...d.filter(x=>x.type!='עיקרית').slice(0,2)].filter(Boolean);
  const g=++GEN;
- cur={id:null,cuisine:style||c,adults:a,kids:k,time:$('#time').value,radius:r,notes,dishes:JSON.parse(JSON.stringify(pick)),ready:DB[c].ready.map(([n,e,kind])=>({n,e,store:kind,dist:'',real:false})),storesNote:'',storesReal:false,aiPending:!!aiOn(),storesPending:true};
+ cur={id:null,cuisine:style||c,adults:a,kids:k,time:$('#time').value,radius:r,notes,dishes:JSON.parse(JSON.stringify(pick)),ready:DB[c].ready.map(([n,e,kind])=>({n,e,store:kind,dist:'',real:false})),storesNote:'',storesReal:false,aiPending:!!aiOn(),storesPending:true,source:'builtin',needLogin:$('#useAI').checked&&!online(),req:{styles:sel,free_text:st0,cuisine:style||c,adults:a,children:k,time:$('#time').value,radius:r,notes}};
  rSugg();setLocStat();
  const storesP=applyStores(g);
- const aiP=(async()=>{
-  if(!aiOn()){if($('#useAI').checked&&!online())toast('תכנון AI זמין רק לאחר כניסה עם אימייל – מוצגת הצעה מהמאגר המובנה');return}
-  try{const res=await callAI('suggest_meal',{styles:sel,free_text:st0,cuisine:style||c,adults:a,children:k,time:cur.time,radius:r,notes});
-   if(!stillPlan(g))return;
-   cur.dishes=res.dishes;cur.ready=(res.ready||[]).map(x=>({...x,store:x.store||kindFromStore(x.n),dist:'',real:false}));cur.ai=true}
-  catch(e){if(stillPlan(g))toast(aiErr(e)+' – מוצגת הצעה מהמאגר המובנה')}
-  finally{if(stillPlan(g)){cur.aiPending=false;rSugg()}}
-  if(stillPlan(g)){cur.storesPending=true;rSugg();await applyStores(g)}
- })();
+ const aiP=aiOn()?runAI(g,false):Promise.resolve();
  Promise.all([aiP,storesP]).catch(()=>{});};
+const SEEN=[];
+async function runAI(g,fresh){
+ try{const res=await callAI('suggest_meal',{...cur.req,fresh,exclude:SEEN.slice(-1)});
+  if(!stillPlan(g))return;
+  cur.dishes=res.dishes;cur.ready=(res.ready||[]).map(x=>({...x,store:x.store||kindFromStore(x.n),dist:'',real:false}));cur.ai=true;
+  cur.source=res.source||'ai';cur.library_id=res.library_id||null;cur.libRating=res.rating||null;cur.libRatingN=res.rating_count||0;if(cur.library_id)SEEN.push(cur.library_id)}
+ catch(e){if(stillPlan(g))toast(aiErr(e)+(fresh?'':' – מוצגת הצעה מהמאגר המובנה'))}
+ finally{if(stillPlan(g)){cur.aiPending=false;cur.freshPending=false;rSugg()}}
+ if(stillPlan(g)){cur.storesPending=true;rSugg();await applyStores(g)}}
+window.surprise=async()=>{if(!cur||cur.aiPending)return;if(!online()){cur.needLogin=true;rSugg();return msg('תכנון חכם עם Gemini זמין רק לאחר כניסה עם אימייל')}
+ if(!cur.req)cur.req={styles:[],free_text:'',cuisine:cur.cuisine,adults:cur.adults,children:cur.kids,time:cur.time,radius:cur.radius||5,notes:cur.notes||''};
+ const g=++GEN;cur.aiPending=true;cur.freshPending=true;rSugg();await runAI(g,true)};
+
 function rSugg(){const s=$('#sugg');s.classList.remove('hide');$('#final').classList.add('hide');const p=P(cur);
  const avail=Object.values(DB).flatMap(x=>x.dishes).filter(d=>!cur.dishes.some(x=>x.n==d.n));
- s.innerHTML=`<div class="card"><h2>🍽️ ההצעה של מר שף</h2><div class="muted">${cur.cuisine} · ${cur.adults} מבוגרים, ${cur.kids} ילדים (${fmt(p)} מנות) · ${cur.time}</div>${planBanners()}${discH}
+ s.innerHTML=`<div class="card"><h2>🍽️ ההצעה של מר שף</h2><div class="muted">${cur.cuisine} · ${cur.adults} מבוגרים, ${cur.kids} ילדים (${fmt(p)} מנות) · ${cur.time}</div>${srcLabel()}${planBanners()}${online()?`<button class="btn sec" id="freshBtn" onclick="surprise()" ${cur.aiPending?'disabled':''}>✨ הפתע אותי במנה חדשה</button>`:''}${discH}
  <h3>👩‍🍳 מנות להכנה</h3>${cur.dishes.map((d,i)=>`<div class="dish"><div class="dh"><span class="emo">${d.e}</span><div class="t"><b>${esc(d.n)}</b> <span class="tag">${esc(d.type)}</span> <span class="muted">⏱ ${d.min} דק׳</span></div><button class="sm" onclick="editD(${i})">✏️ ערוך</button><button class="sm" onclick="cur.dishes.splice(${i},1);rSugg()">🗑️</button></div>
   <details><summary>📖 מרכיבים ואופן הכנה (לחץ לפתיחה)</summary><b>מרכיבים (ל-${fmt(dp(d,p))} מנות):</b><div>${ingH(d,p)}</div><b>אופן הכנה:</b>${stepsH(d)}</details>${refineH(d,i,p)}${chatH(d)}<div id="ed${i}"></div></div>`).join('')||'<p class="muted">אין מנות</p>'}
  ${avail.length?`<div class="row" style="margin-top:8px"><select id="addSel">${avail.map(d=>`<option>${esc(d.n)}</option>`).join('')}</select><button class="sm" onclick="addFromList()">➕ הוסף מהמאגר</button></div>`:''}
@@ -376,7 +383,7 @@ function build(m){const p=P(m),shop={};m.dishes.forEach(d=>eff(d).ing.forEach(x=
  ${m.dishes.map(d=>`<div class="card"><h2>${d.e} ${esc(d.n)}</h2>${d.extra?`<div class="tag">➕ ${d.extra} מנות נוספות (סה״כ ${fmt(dp(d,p))})</div>`:''}${noteH(d)}<h3>מרכיבים</h3>${ingH(d,p)}<h3>אופן הכנה</h3>${stepsH(d)}${chatH(d)}</div>`).join('')}${discH}`;}
 window.confirmM=async()=>{if(!cur.dishes.length&&!cur.ready.length)return msg('הוסף לפחות מנה או פריט');busy('שומר...');try{cur.id=await API.add(cur)}catch(e){toast('שמירה נכשלה: '+e.message)}busy('');
  $('#sugg').classList.add('hide');const f=$('#final');f.classList.remove('hide');f.innerHTML=build(cur)+`<div class="card"><h2>📤 שמירה ושיתוף</h2><button class="btn" id="pdfBtn" onclick="sharePdf()">📄 PDF – הורדה / שיתוף</button><button class="btn sec" onclick="shareWa()">💬 שלח בוואטסאפ (סיכום טקסט)</button><button class="btn sec" onclick="shareMail()">✉️ שלח הכל באימייל (טקסט)</button></div><div class="card">✅ הארוחה נשמרה ב"הארוחות שלי" – שם אפשר לדרג ולהגיב.<button class="btn sec" onclick="show('saved')">לדירוג</button></div>`;scrollTo(0,0);};
-const toRow=m=>({author_label:user.label,settings:{cuisine:m.cuisine,adults:m.adults,kids:m.kids,time:m.time,radius:m.radius,notes:m.notes||'',ai:!!m.ai},dishes:m.dishes,ready:m.ready});
+const toRow=m=>({author_label:user.label,settings:{cuisine:m.cuisine,adults:m.adults,kids:m.kids,time:m.time,radius:m.radius,notes:m.notes||'',ai:!!m.ai,source:m.source||'builtin',library_id:m.library_id||null},dishes:m.dishes,ready:m.ready});
 const fromRow=r=>({id:r.id,owner:r.user_id,author:r.author_label,...r.settings,dishes:r.dishes||[],ready:r.ready||[],rating:r.rating,comment:r.comment||'',created:r.created_at});
 const keep=a=>{a.forEach(m=>MEALS[m.id]=m);return a};
 const API={

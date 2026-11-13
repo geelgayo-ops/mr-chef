@@ -46,6 +46,39 @@ function normDish(x:any){
 }
 const toAI=(d:any)=>({n:d.n,e:d.e,type:d.type,min:d.min,ing:d.ing,stages:d.stages?Object.entries(d.stages).map(([name,steps])=>({name,steps})):[{name:"הכנה",steps:d.steps||[]}],tips:d.tips||[],ahead:d.ahead||""});
 
+// ===== Shared recipe library (layer 1) =====
+const DIETS=["כשר","חלבי","בשרי","צמחוני","טבעוני","ללא גלוטן","מהיר עד 30 דק׳"];
+const DIET_RX:[string,RegExp][]=[["כשר",/כשר/],["חלבי",/חלבי/],["בשרי",/בשרי/],["צמחוני",/צמחוני/],["טבעוני",/טבעוני|vegan/i],["ללא גלוטן",/ללא\s*גלוטן|gluten/i],["מהיר עד 30 דק׳",/מהיר/]];
+const norm=(x:string)=>x.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu," ").replace(/\s+/g," ").trim();
+function libKey(b:any,st:string[]){
+ const free=s(b.free_text).slice(0,200), notes=s(b.notes).slice(0,300);
+ const diet=new Set(st.filter(x=>DIETS.includes(x)));
+ for(const [k,rx] of DIET_RX) if(rx.test(free)) diet.add(k);
+ const styles=st.filter(x=>!DIETS.includes(x)).map(norm).sort();
+ const style_key=[...styles,norm(free)].filter(Boolean).join("+")||norm(s(b.cuisine,"ביתי"));
+ const diet_key=[...diet].sort().join("+");
+ const h=parseInt(s(b.time,"19:30"))||19, meal_slot=h<11?"בוקר":h<16?"צהריים":"ערב";
+ const has_kids=(+b.children||0)>0, notes_key=norm(notes);
+ return {req_key:[style_key,diet_key,meal_slot,has_kids?"kids":"adults",notes_key].join("|"),style_key,diet_key,meal_slot,has_kids,notes_key};
+}
+async function libFind(admin:any,key:any,b:any){
+ const ex=new Set((Array.isArray(b.exclude)?b.exclude:[]).map((x:unknown)=>String(x)).slice(0,100));
+ const {data,error}=await admin.from("recipe_library").select("id,adults,children,dishes,ready,rating_avg,rating_count,use_count").eq("req_key",key.req_key).order("created_at",{ascending:false}).limit(200);
+ if(error||!data) return null;
+ const ok=data.filter((r:any)=>!ex.has(r.id)&&!(r.rating_count>=3&&+r.rating_avg<5));
+ if(!ok.length) return null;
+ const A=+b.adults||0,C=+b.children||0, same=ok.filter((r:any)=>r.adults===A&&r.children===C);
+ const pool=(same.length?same:ok).map((r:any)=>({r,sc:(r.rating_count?+r.rating_avg:7)+Math.random()*0.01}));
+ pool.sort((x:any,y:any)=>y.sc-x.sc);
+ const top=pool.slice(0,5), pick=top[Math.floor(Math.random()*top.length)].r;
+ const sameServ=pick.adults===A&&pick.children===C;
+ return {...pick,ready:(pick.ready||[]).map((x:any)=>sameServ?x:{...x,qty:""})};
+}
+async function libNames(admin:any,key:any){
+ const {data}=await admin.from("recipe_library").select("dishes").eq("style_key",key.style_key).eq("diet_key",key.diet_key).order("created_at",{ascending:false}).limit(15);
+ return [...new Set((data||[]).flatMap((r:any)=>(r.dishes||[]).map((d:any)=>d.n)))].slice(0,30) as string[];
+}
+
 Deno.serve(async req=>{
  if(req.method==="OPTIONS") return new Response("ok",{headers:CORS});
  try{
@@ -55,18 +88,29 @@ Deno.serve(async req=>{
   const {data:{user}}=await userClient.auth.getUser(auth.replace(/^Bearer\s+/i,""));
   if(!user) return j({error:"unauthorized"},401);
   const admin=createClient(url,Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  const b=await req.json(); const a=b.action;
+  const st=Array.isArray(b.styles)?b.styles.slice(0,15).map((x:unknown)=>s(x).slice(0,40)).filter(Boolean):[];
+  const key=a==="suggest_meal"?libKey(b,st):null, fresh=b.fresh===true;
+  if(key&&!fresh){
+   const hit=await libFind(admin,key,b);
+   if(hit){ await admin.rpc("recipe_library_hit",{lid:hit.id}); return j({dishes:hit.dishes,ready:hit.ready,source:"library",library_id:hit.id,rating:hit.rating_count?+hit.rating_avg:null,rating_count:hit.rating_count,disclaimer:DISC}); }
+  }
   const {data:calls,error:rl}=await admin.rpc("bump_ai_usage",{uid:user.id,lim:DAILY_LIMIT});
   if(rl) return j({error:rl.message.includes("rate_limit")?"rate_limit":"usage_error",limit:DAILY_LIMIT},429);
-  const b=await req.json(); const a=b.action;
-  if(a==="suggest_meal"){
-   const st=Array.isArray(b.styles)?b.styles.slice(0,15).map((x:unknown)=>s(x).slice(0,40)).filter(Boolean):[];
+  if(a==="suggest_meal"&&key){
+   const avoid=fresh?await libNames(admin,key):[];
    const p=`תכנן ארוחה. סגנונות/אילוצים שנבחרו: ${st.length?st.join(", "):"לא נבחרו"}. תיאור חופשי: "${s(b.free_text)||s(b.cuisine,"ביתי")}", ${+b.adults||0} מבוגרים ו-${+b.children||0} ילדים, שעת ארוחה ${s(b.time,"19:30")}. הערות: ${s(b.notes,"אין")}.
-החזר 3-4 מנות להכנה (עיקרית + תוספות/סלט) עם מתכונים מלאים, ו-2-3 פריטים מומלצים לקנייה מוכנה (store = סוג חנות כללי, qty = כמות מומלצת לכל המשתתפים).`;
+החזר 3-4 מנות להכנה (עיקרית + תוספות/סלט) עם מתכונים מלאים, ו-2-3 פריטים מומלצים לקנייה מוכנה (store = סוג חנות כללי, qty = כמות מומלצת לכל המשתתפים).${fresh?`
+המשתמש ביקש "הפתע אותי במנה חדשה": הצע ארוחה חדשנית ועדכנית – שילובי טעמים מקוריים, טכניקות ומגמות קולינריות עכשוויות וחומרי גלם עונתיים – שעדיין מעשית להכנה ביתית ועומדת בכל האילוצים.${avoid.length?` אל תחזור על המנות הבאות שכבר הוצעו: ${avoid.join(", ")}.`:""}`:""}`;
    const out=await gemini(p,{type:"OBJECT",properties:{dishes:{type:"ARRAY",items:DISH},ready:{type:"ARRAY",items:READY}},required:["dishes","ready"]});
    const dishes=(out.dishes||[]).map(normDish).slice(0,6);
    if(!dishes.length) throw new Error("no dishes");
    const ready=(out.ready||[]).slice(0,6).map((r:any)=>({n:s(r.n),e:s(r.e,"🛍️").slice(0,8),store:s(r.store,"חנות אוכל מוכן"),qty:s(r.qty)}));
-   return j({dishes,ready,calls,disclaimer:DISC});
+   const {data:row,error:se}=await admin.from("recipe_library").insert({...key,adults:+b.adults||0,children:+b.children||0,
+    request:{styles:st,free_text:s(b.free_text).slice(0,200),cuisine:s(b.cuisine).slice(0,200),time:s(b.time),notes:s(b.notes).slice(0,300)},
+    dishes,ready,model:MODEL,fresh,created_by:user.id}).select("id").single();
+   if(se) console.error("library save",se.message);
+   return j({dishes,ready,calls,source:"ai",library_id:row?.id||null,disclaimer:DISC});
   }
   if(a==="refine_dish"){
    const p=`עדכן את המתכון הבא לפי בקשת המשתמש: "${s(b.note)}"${b.extra?` (המשתמש יוסיף ${+b.extra} מנות – אין צורך לשנות כמויות למנה)`:""}. שמור על אותו מבנה; שנה מרכיבים/כמויות/שלבים לפי הצורך ובשדה changes כתוב 1-5 משפטים קצרים בעברית שמתארים בדיוק מה שונה (למשל "הוספתי 1 כף דבש למנה", "הגדלתי את הפפריקה ל-½ כפית למנה"). אל תוסיף טיפ שמתאר את השינוי.\nמתכון:\n${JSON.stringify(toAI(b.dish)).slice(0,12000)}`;
