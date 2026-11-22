@@ -4,7 +4,7 @@
 // NOTE: SYS/DISC/schemas/normDish/libKey below are copied from chef-ai/index.ts – keep in sync.
 import { createClient } from "npm:@supabase/supabase-js@2";
 const MODEL=Deno.env.get("GEMINI_MODEL")||"gemini-3.1-flash-lite";
-const PLAN_N=40, MAX_ITEMS=45, BATCH=4; // 30 coverage items (one per chip) + 10 weighted extras; ~10 steps of 4
+const PLAN_N=40, MAX_ITEMS=56, BATCH=4; // 30 coverage items (one per chip) + 10 weighted extras; ~10 steps of 4
 const j=(b:unknown,st=200)=>new Response(JSON.stringify(b),{status:st,headers:{"Content-Type":"application/json"}});
 const DISC="המתכונים הם המלצה בלבד, אינם מתייחסים לרגישויות ואלרגיות שונות, והאחריות על ההכנה והאכילה היא של המשתמש בלבד.";
 const ING={type:"OBJECT",properties:{n:{type:"STRING"},e:{type:"STRING"},q:{type:"NUMBER"},u:{type:"STRING"},c:{type:"STRING"}},required:["n","e","q","u","c"]};
@@ -26,6 +26,7 @@ const SYS=`אתה "מר שף" – שף ישראלי מנוסה שכותב מתכ
 - המשתמש עשוי לבחור כמה סגנונות ואילוצים יחד – קיים את כולם במקביל (למשל "תימני"+"טבעוני" = מנות תימניות טבעוניות). הגבלות תזונה הן חובה ולא המלצה:
   כשר = אין ערבוב בשר וחלב באותה ארוחה, ללא חזיר/פירות ים/בעלי חיים לא כשרים; חלבי = ללא בשר/עוף; בשרי = ללא מוצרי חלב בכל הארוחה (גם בקינוח/פריטים מוכנים); צמחוני = ללא בשר/עוף/דגים; טבעוני = ללא כל מוצר מן החי (כולל ביצים, חלב, דבש); ללא גלוטן = ללא חיטה/שעורה/שיפון/סויה רגילה (השתמש בטמארי) ופריטים מוכנים ללא גלוטן; מהיר עד 30 דק׳ = min של כל מנה ≤ 30.
 - גם הפריטים המוכנים חייבים לעמוד באילוצים.
+- כבד מנהגים אזוריים ועדתיים ומסורות של קהילות שונות (יהודיות, מוסלמיות, נוצריות, דרוזיות); בחגים ומועדים העדף מאכלים מסורתיים ועמוד בכללי החג.
 - ${DISC}`;
 
 const s=(x:unknown,d="")=>typeof x==="string"?x.slice(0,2000):d;
@@ -38,7 +39,40 @@ function normDish(x:any){
   tips:(Array.isArray(x.tips)?x.tips:[]).map((t:any)=>s(t)).filter(Boolean).slice(0,6),ahead:s(x.ahead),
   steps:Object.entries(stages).flatMap(([k,v])=>v.map(z=>k+": "+z))};
 }
-const DIETS=["כשר","חלבי","בשרי","צמחוני","טבעוני","ללא גלוטן","מהיר עד 30 דק׳"];
+// ===== Holidays & seasons (keep identical in chef-ai and library-refresh) =====
+const KOSHER="כשר: אין ערבוב בשר וחלב, ללא חזיר ופירות ים.";
+const HALAL="חלאל: בשר ועוף חלאל בלבד, ללא חזיר ומוצריו, ללא אלכוהול (גם לא בבישול, יין, ליקר או תמצית וניל על בסיס אלכוהול), ללא ג׳לטין שאינו חלאל.";
+const HOLIDAY_RULES:Record<string,string>={
+ "ראש השנה":`ארוחת ראש השנה. ${KOSHER} שלב סימנים: תפוח בדבש, רימון, תמרים, סלק/תרד, כרתי (לוף), דלעת, גזר, ראש דג (אופציונלי); אוכל מתוק ולא חמוץ/מר; כבד את מנהגי העדות (ספרדי, אשכנזי, תימני וכו׳).`,
+ "ערב יום כיפור (סעודה מפסקת)":`סעודה מפסקת לפני צום יום כיפור. ${KOSHER} ארוחה משביעה וקלה לעיכול: עוף/מרק עוף, קרפלך או אורז, פחמימות מורכבות; בלי מלוח, חריף או מתובל מדי ובלי קפאין, כדי לא לצמא בצום; להגיש כשעה-שעתיים לפני כניסת הצום.`,
+ "מוצאי יום כיפור (שבירת צום)":`ארוחת שבירת צום יום כיפור. ${KOSHER} פותחים במשקה ובמשהו קל ומתוק (עוגה, תמרים, מים/תה), ואז ארוחה לא כבדה – נהוג חלבי קל (מאפים, ביצים, דגים, קוגל) לפי מנהג העדה.`,
+ "סוכות":`ארוחת סוכות. ${KOSHER} מנות נוחות להגשה ולנשיאה לסוכה, ממולאים (ירקות או כרוב ממולא) כסמל לשפע, פירות וירקות של עונת האסיף, תבשילים חמימים.`,
+ "חנוכה":`ארוחת חנוכה. ${KOSHER} חובה לפחות מנה מטוגנת בשמן (לביבות/לאטקס, סופגניות, כרובית מטוגנת, צ׳יפס ביתי וכד׳); מסורת מאכלי גבינה אפשרית רק אם הארוחה כולה חלבית.`,
+ "ט״ו בשבט":`ארוחת ט״ו בשבט. ${KOSHER} שלב את שבעת המינים (חיטה, שעורה, גפן, תאנה, רימון, זית, תמר), פירות יבשים ואגוזים; מומלץ צמחוני/חלבי.`,
+ "פורים":`סעודת פורים. ${KOSHER} אוכל חגיגי ושמח, אוזני המן כפריט מוכן או קינוח, קרפלך, מאכלי זרעים וקטניות (מנהג אסתר); אין אלכוהול כשיש ילדים.`,
+ "פסח":`ארוחת פסח – כשר לפסח. ${KOSHER} אסור חמץ: אין חיטה, שעורה, שיפון, שיבולת שועל או כוסמין ומוצריהם (מלבד מצה וקמח מצה), אין שמרים, פירורי לחם, פסטה, קוסקוס, בורגול, רוטב סויה רגיל. ללא קטניות (אורז, תירס, שעועית, עדשים, חומוס, אפונה, סויה, שומשום, חרדל, קמח תירס) – אלא אם נבחר "פסח – כולל קטניות". פריטים מוכנים: רק בהכשר לפסח. שלב מאכלים מסורתיים (מרק עוף וקניידלך, דג/גפילטע, צלי, חרוסת, מצה בריי, עוגות ללא קמח).`,
+ "פסח – כולל קטניות":`מותר להשתמש בקטניות בפסח (מנהג ספרדי/מזרחי) – אורז, קטניות וכו׳, אך עדיין ללא חמץ.`,
+ "שבועות":`ארוחת שבועות – חלבית. ${KOSHER} ללא בשר ועוף; מאכלי חלב וגבינות (בלינצ׳ס, עוגת גבינה, פשטידות, לזניה, בורקס גבינה) ודגים.`,
+ "חג המולד":`ארוחת חג המולד. שלב מסורת נוצרית-ערבית מקומית (גליל, נצרת, ירושלים, בית לחם: ממולאים, קובה, עוף/כבש בתנור עם אורז, מעמול, כעכ) ומסורת מערבית (עוף/הודו ממולא, ירקות צלויים, עוגיות ג׳ינג׳ר); ללא חזיר כברירת מחדל.`,
+ "פסחא":`ארוחת פסחא. שלב מסורת נוצרית-ערבית מקומית (מעמול בתמרים ובאגוזים, טלה/כבש, ממולאים, ביצים צבועות) ומסורת מערבית (טלה צלוי, לחם פסחא מתוק); ללא חזיר כברירת מחדל.`,
+ "רמדאן – אפטאר":`ארוחת אפטאר לשבירת צום הרמדאן בשקיעה. ${HALAL} פותחים בתמרים ומים/חלב או משקה (תמר הינדי, קמר א-דין), אחר כך מרק (שורבת עדשים), סלט (פטוש), סמבוסק, מנה עיקרית ביתית (מקלובה, מנסף, ממולאים) וקינוח (קטאייף).`,
+ "רמדאן – סחור":`ארוחת סחור לפני עלות השחר ברמדאן. ${HALAL} משביעה ומשחררת אנרגיה לאט, לא מלוחה ולא חריפה (כדי לא לצמא), עשירה בנוזלים: לבנה, ביצים, פול, חומוס, זעתר ושמן זית, זיתים, שיבולת שועל, תמרים, מלפפון ועגבנייה. הכנה קצרה.`,
+ "עיד אל-פיטר":`ארוחת עיד אל-פיטר. ${HALAL} ארוחה משפחתית חגיגית: מעמול וכעכ, קטאייף, מקלובה, מנסף, ממולאים, כבש או עוף.`,
+ "עיד אל-אדחא":`ארוחת עיד אל-אדחא. ${HALAL} מרכזה בשר כבש או בקר (קורבן): כבש בתנור, מנסף, פתה, קבב; לצד אורז, סלטים ומעמול.`,
+ "עיד אל-אדחא (דרוזי)":`ארוחת עיד אל-אדחא לפי מסורת העדה הדרוזית (גליל וכרמל). ללא חזיר וללא אלכוהול. כבש או עוף, מנסף או מקלובה, קובה, ממולאים, פיתה דרוזית עם לבנה וזעתר, מעמול וכנאפה.`,
+ "הקפדה דתית מחמירה":`הקפד על דיוק דתי מחמיר לפי החג/הקהילה: לכשרות – כשרות מהדרין, בדיקת ירקות עליים מחרקים, הפרדה מלאה בין בשר לחלב, פריטים מוכנים בהשגחה מתאימה; לחלאל – הכשר חלאל לכל מוצר; אם יש ספק – בחר במנהג המחמיר והזכר זאת בטיפים.`,
+};
+const OPT_FLAGS=["פסח – כולל קטניות","הקפדה דתית מחמירה"];
+function holidayRules(st:string[]){const r=st.filter(x=>HOLIDAY_RULES[x]).map(x=>"• "+x+": "+HOLIDAY_RULES[x]);return r.length?"\nכללי חג/מועד מחייבים (גוברים על המלצות אחרות):\n"+r.join("\n"):""}
+const MONTH_IL=["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
+const SEASON_PRODUCE=["הדרים (קלמנטינות, תפוזים, פומלה), אבוקדו, תותים, כרובית, ברוקולי, כרוב, קולרבי, סלק, גזר, תרד, מנגולד, שומר, ארטישוק ירושלמי","הדרים, תותים, אבוקדו, כרובית, ברוקולי, כרוב, סלק, שומר, פול ואפונה ירוקים, עשבי תיבול","תותים, ארטישוק, פול ואפונה ירוקים, שעועית ירוקה, שסק, עשבי תיבול, תפוזים אחרונים","ארטישוק, שסק, שעועית ירוקה, קישואים, עשבי תיבול, נענע, שקדים ירוקים","שסק, משמש, דובדבנים, קישואים, עגבניות, מלפפונים, תירס","אבטיח, מלון, אפרסקים, נקטרינות, שזיפים, משמש, עגבניות, מלפפונים, חצילים, פלפלים, תירס","אבטיח, מלון, ענבים, תאנים, מנגו, שזיפים, עגבניות, חצילים, פלפלים, תירס, במיה","ענבים, תאנים, מנגו, אבטיח, צבר, חצילים, במיה, דלעת ראשונה","רימונים, תמרים, תאנים, ענבים, תפוחים, חבושים, דלעת, בטטה, חצילים","רימונים, תמרים, תפוחים, אגסים, חבושים, אפרסמון, דלעת, בטטה, זיתים","רימונים, אפרסמון, הדרים ראשונים, אבוקדו, תפוחים, דלעת, בטטה, כרובית, ברוקולי, פטריות","הדרים, אבוקדו, תותים ראשונים, כרובית, ברוקולי, כרוב, סלק, קולרבי, תרד, פטריות"];
+function season(d=new Date()){
+ const m=+new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Jerusalem",month:"numeric"}).format(d)-1;
+ const name=m<=1||m===11?"חורף":m<=4?"אביב":m<=7?"קיץ":"סתיו", cold=m>=10||m<=2; // key bucket: Nov–Mar cold, Apr–Oct warm
+ const weather=cold?"מזג אוויר קריר-חורפי: העדף מרקים, תבשילים, קדירות, צלי ומנות חמות ומנחמות":(m>=5&&m<=8)?"קיץ ישראלי חם: העדף מנות קלות, קרות ורעננות, סלטים, גריל ומרקים קרים; הימנע ממנות כבדות ומבישול ארוך בתנור":"מזג אוויר נעים: שלב מנות קלות וחמות במידה";
+ return {bucket:cold?"קר":"חם",name,line:`\nעונה בישראל: ${name} (${MONTH_IL[m]}). ${weather}. העדף ירקות ופירות בעונתם: ${SEASON_PRODUCE[m]}.`};
+}
+const DIETS=["כשר","חלבי","בשרי","צמחוני","טבעוני","ללא גלוטן","מהיר עד 30 דק׳",...OPT_FLAGS];
 const DIET_RX:[string,RegExp][]=[["כשר",/כשר/],["חלבי",/חלבי/],["בשרי",/בשרי/],["צמחוני",/צמחוני/],["טבעוני",/טבעוני|vegan/i],["ללא גלוטן",/ללא\s*גלוטן|gluten/i],["מהיר עד 30 דק׳",/מהיר/]];
 const norm=(x:string)=>x.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu," ").replace(/\s+/g," ").trim();
 function libKey(b:any,st:string[]){
@@ -50,7 +84,8 @@ function libKey(b:any,st:string[]){
  const diet_key=[...diet].sort().join("+");
  const h=parseInt(s(b.time,"19:30"))||19, meal_slot=h<11?"בוקר":h<16?"צהריים":"ערב";
  const has_kids=(+b.children||0)>0, notes_key=norm(notes);
- return {req_key:[style_key,diet_key,meal_slot,has_kids?"kids":"adults",notes_key].join("|"),style_key,diet_key,meal_slot,has_kids,notes_key};
+ const se=season(b&&b.season_date?new Date(b.season_date+"T12:00:00Z"):undefined).bucket;
+ return {req_key:[style_key,diet_key,meal_slot,has_kids?"kids":"adults",notes_key,se].join("|"),style_key,diet_key,meal_slot,has_kids,notes_key,season:se};
 }
 
 async function callGemini(body:any){
@@ -98,6 +133,24 @@ function mkReq(style:string,diet:string,kids:boolean,slot:[string,string,number]
  const styles=[style,diet].filter(Boolean);
  return {styles,free_text:"",cuisine:styles.join(" · "),adults:kids?2:4,children:kids?2:0,time:slot[1],notes:""};
 }
+// Holiday dates 2026–2028 (first day, civil date). Hebrew: ICU Hebrew calendar, verified vs hebcal.com; Islamic: islamic-umalqura (±1 day, moon sighting); Easter: Western + Orthodox computus; Christmas: Dec 25 + Orthodox Jan 7.
+const HOLIDAYS:[string,string,number][]=[["2026-01-07","xmas_e",1],["2026-02-02","tubishvat",1],["2026-02-18","ramadan",30],["2026-03-03","purim",1],["2026-03-20","fitr",3],["2026-04-02","pesach",7],["2026-04-05","easter",1],["2026-04-12","easter_e",1],["2026-05-22","shavuot",1],["2026-05-27","adha",4],["2026-09-12","rosh",2],["2026-09-21","kippur",1],["2026-09-26","sukkot",7],["2026-12-05","hanukkah",8],["2026-12-25","xmas",1],["2027-01-07","xmas_e",1],["2027-01-23","tubishvat",1],["2027-02-08","ramadan",30],["2027-03-09","fitr",3],["2027-03-23","purim",1],["2027-03-28","easter",1],["2027-04-22","pesach",7],["2027-05-02","easter_e",1],["2027-05-16","adha",4],["2027-06-11","shavuot",1],["2027-10-02","rosh",2],["2027-10-11","kippur",1],["2027-10-16","sukkot",7],["2027-12-25","hanukkah",8],["2027-12-25","xmas",1],["2028-01-07","xmas_e",1],["2028-01-28","ramadan",30],["2028-02-12","tubishvat",1],["2028-02-26","fitr",3],["2028-03-12","purim",1],["2028-04-11","pesach",7],["2028-04-16","easter",1],["2028-04-16","easter_e",1],["2028-05-05","adha",4],["2028-05-31","shavuot",1],["2028-09-21","rosh",2],["2028-09-30","kippur",1],["2028-10-05","sukkot",7],["2028-12-13","hanukkah",8],["2028-12-25","xmas",1]];
+const HOLIDAY_CHIPS:Record<string,string[]>={"rosh": ["ראש השנה"], "kippur": ["ערב יום כיפור (סעודה מפסקת)", "מוצאי יום כיפור (שבירת צום)"], "sukkot": ["סוכות"], "hanukkah": ["חנוכה"], "tubishvat": ["ט״ו בשבט"], "purim": ["פורים"], "pesach": ["פסח"], "shavuot": ["שבועות"], "xmas": ["חג המולד"], "xmas_e": ["חג המולד"], "easter": ["פסחא"], "easter_e": ["פסחא"], "ramadan": ["רמדאן – אפטאר", "רמדאן – סחור"], "fitr": ["עיד אל-פיטר"], "adha": ["עיד אל-אדחא", "עיד אל-אדחא (דרוזי)"]};
+function upcomingHolidays(now=new Date(),ahead=21){
+ const today=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Jerusalem"}).format(now), t0=Date.parse(today+"T00:00:00Z");
+ const res:{date:string,chip:string}[]=[],seen=new Set<string>();
+ for(const [d,id,days] of HOLIDAYS){const t=Date.parse(d+"T00:00:00Z"),diff=(t-t0)/864e5;
+  if(diff<=ahead&&diff+days>0) for(const chip of HOLIDAY_CHIPS[id]||[]) if(!seen.has(chip)){seen.add(chip);res.push({date:diff<0?today:d,chip})}}
+ return res;
+}
+function holidayVariants(chip:string):[string,boolean][]{
+ if(chip==="רמדאן – סחור")return[["04:30",false],["04:30",true]];
+ if(chip==="רמדאן – אפטאר")return[["17:30",true],["17:30",false]];
+ if(chip.startsWith("ערב יום כיפור"))return[["15:30",true],["16:30",false]];
+ if(chip.startsWith("מוצאי יום כיפור"))return[["18:30",true],["18:30",false]];
+ if(chip.startsWith("עיד אל-אדחא")&&chip.includes("דרוזי"))return[["13:00",true],["19:30",false]];
+ return[["19:30",true],["19:30",false],["13:00",true]];
+}
 async function plan(admin:any,trendList:any[]){
  const {data:lib}=await admin.from("recipe_library").select("style_key,diet_key").limit(5000);
  const have=new Map<string,number>(); for(const r of lib||[]){const k=r.style_key+"|"+r.diet_key;have.set(k,(have.get(k)||0)+1)}
@@ -110,8 +163,15 @@ async function plan(admin:any,trendList:any[]){
  const cov=ALL_CHIPS.map(ch=>{const isDiet=DIET_CHIPS.includes(ch);const kids=ch==="ילדים אוהבים"||Math.random()<0.4;
   return mkReq(isDiet?"":ch,isDiet?ch:"",kids,slotFor(ch))}).map(r=>({r,c:cnt(r)})).sort((a,b)=>a.c-b.c);
  for(const {r} of cov) for(let t=0;t<6&&!add(r,r.styles[0]);t++){r.time=slotFor(r.styles[0])[1]}
+ // 1b) upcoming holidays (next ~3 weeks): a few traditional meals per holiday chip, no trend hint
+ let hol=0;
+ for(const h of upcomingHolidays()) for(const [time,kids] of holidayVariants(h.chip)){
+  const req={styles:[h.chip],free_text:"",cuisine:h.chip,adults:kids?2:4,children:kids?2:0,time,notes:"",season_date:h.date};
+  const k=libKey(req,req.styles).req_key; if(seen.has(k))continue; seen.add(k); hol++;
+  out.push({req,coverage:"holiday:"+h.chip,trend:null});
+ }
  // 2) fill: weighted variety (style + optional diet), preferring style/diet combos absent from the library
- for(let t=0;out.length<PLAN_N&&t<PLAN_N*20;t++){
+ for(let t=0;out.length<PLAN_N+hol&&t<PLAN_N*20;t++){
   const style=wpick(STYLE_CHIPS,x=>POPULAR.includes(x)?3:1);
   const diet=wpick(DIET_POOL,x=>x[1])[0];
   const kids=style==="ילדים אוהבים"||Math.random()<0.5;
@@ -128,7 +188,7 @@ async function makeItem(admin:any,run:any,it:any){
  const avoid=[...new Set((prev||[]).flatMap((r:any)=>(r.dishes||[]).map((d:any)=>d.n)))].slice(0,30) as string[];
  const p=`תכנן ארוחה. סגנונות/אילוצים שנבחרו: ${st.join(", ")}. תיאור חופשי: "${b.cuisine}", ${b.adults} מבוגרים ו-${b.children} ילדים, שעת ארוחה ${b.time}. הערות: אין.
 החזר 3-4 מנות להכנה (עיקרית + תוספות/סלט) עם מתכונים מלאים, ו-2-3 פריטים מומלצים לקנייה מוכנה (store = סוג חנות כללי, qty = כמות מומלצת לכל המשתתפים).
-זו ארוחת ${key.meal_slot==="בוקר"?"בוקר":key.meal_slot==="צהריים"?"צהריים":"ערב"} – התאם את המנות לסוג הארוחה ולסגנון שנבחר (מנות אותנטיות לסגנון).
+זו ארוחת ${key.meal_slot==="בוקר"?"בוקר":key.meal_slot==="צהריים"?"צהריים":"ערב"} – התאם את המנות לסוג הארוחה ולסגנון שנבחר (מנות אותנטיות לסגנון).${holidayRules(st)}${season(b.season_date?new Date(b.season_date+"T12:00:00Z"):undefined).line}
 ${it.trend?`קבל השראה מטרנד קולינרי עכשווי: ${it.trend}. שלב אותו רק אם הוא מתאים לסגנון, לשעת הארוחה ולאילוצים (אחרת התעלם ממנו) – עדיף ארוחה עדכנית וחדשנית שעדיין מעשית להכנה ביתית.`:""}${+b.children>0?" יש ילדים בארוחה: בלי אלכוהול, בלי דג/בשר נא ובלי חריף בולט.":""}${avoid.length?` אל תחזור על המנות הבאות שכבר קיימות במאגר: ${avoid.join(", ")}.`:""}`;
  const r=await callGemini({systemInstruction:{parts:[{text:SYS}]},contents:[{role:"user",parts:[{text:p}]}],generationConfig:{responseMimeType:"application/json",responseSchema:{type:"OBJECT",properties:{dishes:{type:"ARRAY",items:DISH},ready:{type:"ARRAY",items:READY}},required:["dishes","ready"]},temperature:0.8,maxOutputTokens:16000}});
  const tin=r.usage.promptTokenCount||0, tout=(r.usage.candidatesTokenCount||0)+(r.usage.thoughtsTokenCount||0);

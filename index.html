@@ -25,7 +25,7 @@ summary{cursor:pointer;color:#e85d04;font-weight:600;margin-top:6px}
 .grp{margin:4px 0}.gt{font-weight:700;color:#9a3412;font-size:14px;margin-top:6px}.stg{background:#fffaf5;border:1px solid #f1e3d3;border-radius:10px;padding:4px 10px;margin:6px 0}.stg li{margin:4px 0;line-height:1.5}.tips{background:#fffbea}.ahead{background:#eef7ff}
 #toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 16px;border-radius:12px;opacity:0;transition:.3s;z-index:20;max-width:90%;pointer-events:none}#toast.on{opacity:1}
 #busy{display:none}#busy.on{display:flex;position:fixed;inset:0;background:#0006;z-index:30;align-items:center;justify-content:center}#busy>div{background:#fff;padding:20px;border-radius:14px;text-align:center;max-width:80%}.spin{width:36px;height:36px;border:4px solid #f3d3b8;border-top-color:#e85d04;border-radius:50%;margin:0 auto 10px;animation:sp 1s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}
-.chips{display:flex;flex-wrap:wrap;gap:6px}.chip{border:1px solid #f0c9a8;background:#fff;color:#9a3412;border-radius:18px;padding:6px 12px;font-size:14px;cursor:pointer;font-family:inherit}.chip.on{background:#e85d04;color:#fff;border-color:#e85d04}input.big{border:2px solid #e85d04;font-size:17px}
+.hgrp{font-size:13px;color:#9a3412;margin:6px 0 3px}.holb{display:flex;gap:8px;align-items:center;background:linear-gradient(90deg,#fff3e0,#ffe0b2);border:1px solid #f0c9a8;border-radius:12px;padding:10px 12px;margin:0 0 10px;cursor:pointer;font-size:16px}.holb b{flex:1}.holb .x{border:0;background:none;font-size:18px;cursor:pointer;color:#9a3412}.chips{display:flex;flex-wrap:wrap;gap:6px}.chip{border:1px solid #f0c9a8;background:#fff;color:#9a3412;border-radius:18px;padding:6px 12px;font-size:14px;cursor:pointer;font-family:inherit}.chip.on{background:#e85d04;color:#fff;border-color:#e85d04}input.big{border:2px solid #e85d04;font-size:17px}
 #fbBtn{position:fixed;bottom:16px;left:16px;z-index:15;background:#e85d04;color:#fff;border:0;border-radius:24px;padding:10px 16px;font-size:15px;box-shadow:0 3px 10px #0003;cursor:pointer}
 #fb{display:none;position:fixed;inset:0;background:#0006;z-index:25;align-items:flex-end;justify-content:center}#fb.on{display:flex}#fb .card{width:100%;max-width:600px;max-height:90vh;overflow:auto;margin:0;border-radius:16px 16px 0 0}
 .fbs button{font-size:30px;background:none;border:0;cursor:pointer;color:#ccc}.fbs button.on{color:#f5a623}
@@ -43,8 +43,11 @@ summary{cursor:pointer;color:#e85d04;font-weight:600;margin-top:6px}
  <button class="btn sec" id="demoBtn">המשך במצב הדגמה (נשמר רק במכשיר הזה)</button></div>
  <div class="disc" data-disc></div></section>
 <section id="v-plan" class="hide">
+ <div id="holBanner"></div>
  <div class="card" id="formCard"><h2>ספר לי על הארוחה</h2>
   <label>סגנון הארוחה (אפשר לבחור כמה)</label><div id="chips" class="chips"></div><select id="cuisine" class="hide"></select>
+  <label>🎉 חגים ומועדים</label><div id="hchips"></div>
+  <div id="seasonInd" class="muted" style="margin-top:6px"></div>
   <div class="row"><div><label>מבוגרים</label><input id="adults" type="number" min="0" value="4"></div><div><label>ילדים</label><input id="kids" type="number" min="0" value="2"></div></div>
   <div class="row"><div><label>שעת הארוחה</label><input id="time" type="time" value="19:30"></div><div><label>רדיוס חנויות (ק"מ)</label><input id="radius" type="number" min="1" value="5"></div></div>
   <label>✍️ כל סגנון שתרצה</label><input id="style" class="big" placeholder="לדוגמה: ארוחת ראש השנה גאורגית, אוכל רחוב ויאטנמי, כמו אצל סבתא">
@@ -209,6 +212,30 @@ const STYLES=['ביתי ישראלי','ארוחת שישי/חג','ים תיכו�
 const MAP={'איטלקי':'איטלקי','צרפתי':'איטלקי','ספרדי':'איטלקי','חלבי':'איטלקי','בראנץ׳':'ים תיכוני','אסייתי':'אסייתי','סיני':'אסייתי','יפני':'אסייתי','תאילנדי':'אסייתי','הודי':'אסייתי','מקסיקני':'אמריקאי / מנגל','אמריקאי/BBQ':'אמריקאי / מנגל','גריל/מנגל':'אמריקאי / מנגל','פיקניק':'אמריקאי / מנגל','ילדים אוהבים':'אמריקאי / מנגל'};
 $('#chips').innerHTML=STYLES.map(x=>`<button type="button" class="chip">${x}</button>`).join('');
 document.querySelectorAll('.chip').forEach(b=>b.onclick=()=>b.classList.toggle('on'));
+
+// ===== חגים, מועדים ועונות =====
+const HOL_GROUPS=[['✡️ יהודיים',['ראש השנה','ערב יום כיפור (סעודה מפסקת)','מוצאי יום כיפור (שבירת צום)','סוכות','חנוכה','ט״ו בשבט','פורים','פסח','שבועות']],['✝️ נוצריים',['חג המולד','פסחא']],['☪️ מוסלמיים',['רמדאן – אפטאר','רמדאן – סחור','עיד אל-פיטר','עיד אל-אדחא']],['🌟 דרוזיים',['עיד אל-אדחא (דרוזי)']],['⚙️ אפשרויות',['פסח – כולל קטניות','הקפדה דתית מחמירה']]];
+$('#hchips').innerHTML=HOL_GROUPS.map(([g,a])=>`<div class="hgrp">${g}</div><div class="chips">${a.map(x=>`<button type="button" class="chip">${x}</button>`).join('')}</div>`).join('');
+document.querySelectorAll('#hchips .chip').forEach(b=>b.onclick=()=>b.classList.toggle('on'));
+// תאריכי היום הראשון 2026–2028. עבריים: לוח עברי (ICU), נבדק מול hebcal; מוסלמיים: אום אל-קורא (±יום, לפי ראיית הירח); פסחא: מערבי + אורתודוקסי; חג המולד: 25.12 + אורתודוקסי 7.1
+const HOLS=[["2026-01-07","xmas_e",1],["2026-02-02","tubishvat",1],["2026-02-18","ramadan",30],["2026-03-03","purim",1],["2026-03-20","fitr",3],["2026-04-02","pesach",7],["2026-04-05","easter",1],["2026-04-12","easter_e",1],["2026-05-22","shavuot",1],["2026-05-27","adha",4],["2026-09-12","rosh",2],["2026-09-21","kippur",1],["2026-09-26","sukkot",7],["2026-12-05","hanukkah",8],["2026-12-25","xmas",1],["2027-01-07","xmas_e",1],["2027-01-23","tubishvat",1],["2027-02-08","ramadan",30],["2027-03-09","fitr",3],["2027-03-23","purim",1],["2027-03-28","easter",1],["2027-04-22","pesach",7],["2027-05-02","easter_e",1],["2027-05-16","adha",4],["2027-06-11","shavuot",1],["2027-10-02","rosh",2],["2027-10-11","kippur",1],["2027-10-16","sukkot",7],["2027-12-25","hanukkah",8],["2027-12-25","xmas",1],["2028-01-07","xmas_e",1],["2028-01-28","ramadan",30],["2028-02-12","tubishvat",1],["2028-02-26","fitr",3],["2028-03-12","purim",1],["2028-04-11","pesach",7],["2028-04-16","easter",1],["2028-04-16","easter_e",1],["2028-05-05","adha",4],["2028-05-31","shavuot",1],["2028-09-21","rosh",2],["2028-09-30","kippur",1],["2028-10-05","sukkot",7],["2028-12-13","hanukkah",8],["2028-12-25","xmas",1]];
+const HOL_INFO={rosh:['ראש השנה','🍎','ראש השנה',1],kippur:['יום כיפור','🕊️','ערב יום כיפור (סעודה מפסקת)',1],sukkot:['סוכות','🌿','סוכות',1],hanukkah:['חנוכה','🕎','חנוכה',1],tubishvat:['ט״ו בשבט','🌳','ט״ו בשבט',1],purim:['פורים','🎭','פורים',1],pesach:['פסח','🍷','פסח',1],shavuot:['שבועות','🧀','שבועות',1],
+ xmas:['חג המולד','🎄','חג המולד',0],xmas_e:['חג המולד (אורתודוקסי)','🎄','חג המולד',0],easter:['פסחא','🐣','פסחא',0],easter_e:['פסחא (אורתודוקסי)','🐣','פסחא',0],ramadan:['רמדאן','🌙','רמדאן – אפטאר',0],fitr:['עיד אל-פיטר','🌙','עיד אל-פיטר',0],adha:['עיד אל-אדחא','🐑','עיד אל-אדחא',0]};
+const APPROX={ramadan:1,fitr:1,adha:1};
+function todayIL(){const q=new URLSearchParams(location.search).get('today');if(/^\d{4}-\d{2}-\d{2}$/.test(q||''))return q;return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Jerusalem'}).format(new Date())}
+function upcomingHol(today=todayIL(),ahead=14){const t0=Date.parse(today+'T00:00:00Z'),out=[];
+ for(const[d,id,days]of HOLS){const I=HOL_INFO[id];const start=Date.parse(d+'T00:00:00Z')-(I[3]?864e5:0);const diff=Math.round((start-t0)/864e5);const end=Date.parse(d+'T00:00:00Z')+days*864e5;
+  if(diff<=ahead&&end>t0)out.push({id,d,diff,name:I[0],emo:I[1],chip:I[2],eve:!!I[3],approx:!!APPROX[id]})}
+ return out.slice(0,2)}
+const dm=d=>{const[y,m,x]=d.split('-');return +x+'.'+ +m};
+function renderHolBanner(){const hs=upcomingHol().filter(h=>!store.get('mrchef_holx_'+h.id+h.d));
+ $('#holBanner').innerHTML=hs.map(h=>{const when=h.diff>0?`בעוד ${h.diff} ימים`:h.diff==0?(h.eve?'מתחיל הערב':'היום'):'כבר כאן';
+  const date=h.eve?`ערב החג ${dm(new Date(Date.parse(h.d)-864e5).toISOString().slice(0,10))}`:dm(h.d)+(h.approx?' (±יום)':'');
+  return `<div class="holb" onclick="pickHol('${h.chip}')"><span style="font-size:24px">${h.emo}</span><b>${h.name} ${when} – ${h.id=='ramadan'?'לתכנן ארוחת אפטאר?':h.id=='kippur'?'לתכנן סעודה מפסקת?':'לתכנן ארוחת חג?'}<br><span class="muted" style="font-weight:400;font-size:13px">${date} · לחצו לבחירת ${esc(h.chip)}</span></b><button class="x" title="הסתר" onclick="event.stopPropagation();store.set('mrchef_holx_${h.id}${h.d}','1');renderHolBanner()">✕</button></div>`}).join('')}
+window.pickHol=chip=>{document.querySelectorAll('#hchips .chip').forEach(b=>{if(b.textContent==chip)b.classList.add('on')});const e=$('#hchips');e.scrollIntoView({behavior:'smooth',block:'center'});toast('נבחר: '+chip+' – אפשר להוסיף סגנון ולהציע ארוחה')};
+function seasonIL(today=todayIL()){const m=+today.slice(5,7)-1;const n=m<=1||m===11?['חורף','❄️']:m<=4?['אביב','🌸']:m<=7?['קיץ','☀️']:['סתיו','🍂'];return{name:n[0],emo:n[1],m}}
+{const se=seasonIL();$('#seasonInd').textContent=`${se.emo} עונה: ${se.name} – מר שף יעדיף ירקות ופירות עונתיים ומנות שמתאימות למזג האוויר`}
+renderHolBanner();
 const selStyles=()=>[...document.querySelectorAll('.chip.on')].map(b=>b.textContent);
 const nearest=(sel,txt)=>{for(const x of sel)if(MAP[x])return MAP[x];const t=txt||'';if(/איטל|פסט|פיצ|צרפת/.test(t))return'איטלקי';if(/אסי|סינ|יפנ|תאי|הוד|סושי/.test(t))return'אסייתי';if(/מנגל|גריל|המבורג|אמריק|מקסיק/.test(t))return'אמריקאי / מנגל';return'ים תיכוני'};
 function msg(t){alert(t)}
